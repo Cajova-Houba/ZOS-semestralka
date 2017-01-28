@@ -6,10 +6,10 @@
  * Reads n bytes from file and stores them to dest.
  * Returns OK if the n bytes are read, otherwise returns ERR_READING_FILE.
  */
-int read_bytes_from_file(FILE* file, void* dest, int n, int size) {
+int read_bytes_from_file(FILE* file, void* dest, int n) {
     int bytes_read = 0;
 
-    bytes_read = (int)fread(dest, (size_t)size, (size_t)n, file);
+    bytes_read = (int)fread(dest, (size_t)1, (size_t)n, file);
     if(bytes_read != n) {
         return ERR_READING_FILE;
     }
@@ -39,38 +39,38 @@ int load_boot_record(FILE* file, Boot_record* boot_record) {
 
     // read from file to the structure
     // description
-    bytes_read = read_bytes_from_file(file, boot_record->volume_descriptor, DESCRIPTION_LEN, 1);
+    bytes_read = read_bytes_from_file(file, boot_record->volume_descriptor, DESCRIPTION_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
     boot_record->volume_descriptor[DESCRIPTION_LEN] = '\0';
 
     // fat type
-    bytes_read = read_bytes_from_file(file, &boot_record->fat_type, FAT_TYPE_LEN, 1);
+    bytes_read = read_bytes_from_file(file, &boot_record->fat_type, FAT_TYPE_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
 
     // fat copies
-    bytes_read = read_bytes_from_file(file, &boot_record->fat_copies, FAT_COPIES_LEN, 1);
+    bytes_read = read_bytes_from_file(file, &boot_record->fat_copies, FAT_COPIES_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
 
     // cluster size
-    bytes_read = read_bytes_from_file(file, &boot_record->cluster_size, CLUSTER_SIZE_LEN, 1);
+    bytes_read = read_bytes_from_file(file, &boot_record->cluster_size, CLUSTER_SIZE_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
 
     // usable cluster count
-    bytes_read = read_bytes_from_file(file, &boot_record->usable_cluster_count, 1, USABLE_CLUSTER_LEN);
+    bytes_read = read_bytes_from_file(file, &boot_record->usable_cluster_count, USABLE_CLUSTER_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
 
     // signature
-    bytes_read = read_bytes_from_file(file, buffer, SIGNATURE_LEN, 1);
+    bytes_read = read_bytes_from_file(file, buffer, SIGNATURE_LEN);
     if(bytes_read != OK) {
         return ERR_READING_FILE;
     }
