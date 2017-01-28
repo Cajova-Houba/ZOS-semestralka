@@ -2,14 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include "fat.h"
-
-#define ADD_FILE_CMD        "-a"
-#define DELETE_FILE_CMD     "-f"
-#define FILE_CLUSTERS_CMD   "-c"
-#define NEW_DIR_CMD         "-m"
-#define DELETE_DIR_CMD      "-r"
-#define PRINT_FILE_CMD      "-l"
-#define PRINT_ALL_CMD       "-p"
+#include "commands.h"
 
 /*
  * Tries to load the fat file name and command name.
