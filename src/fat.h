@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 #include "errors.h"
+#include "slog.h"
 
 
 #define DESCRIPTION_LEN         250
@@ -16,6 +17,9 @@
 #define CLUSTER_SIZE_LEN        2
 #define USABLE_CLUSTER_LEN      4
 #define SIGNATURE_LEN           9
+
+#define DIR_PRINT_FORMAT        "+%s\n"
+#define FILE_PRINT_FORMAT       "-%s %d %d\n"
 
 typedef enum {
     FAT_UNUSED = INT32_MAX - 1,
@@ -68,7 +72,24 @@ int load_boot_record(FILE* file, Boot_record* boot_record);
  *
  * Returns:
  * OK: fat table loaded.
+ * ERR_READING_FILE: error occurs.
  */
 int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest);
+
+/*
+ * Loads contents of root directory from file and stores them to dest.
+ * Dest is expected to be an array.
+ *
+ * Returns:
+ * number of items in the root dir load
+ * ERR_READING_FILE: error occurs.
+ */
+int load_root_dir(FILE* file, Boot_record* boot_record, Directory* dest);
+
+/*
+ * Prints directory structure to the buffer.
+ * Number of tabs placed before the actual output is set by level.
+ */
+void print_dir(char* buffer, Directory* directory, int level);
 
 #endif //SEMESTRALKA_FAT_H

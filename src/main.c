@@ -37,7 +37,9 @@ int main(int argc, char** argv) {
     int i = 0;
     int32_t fat_table[500];
     Boot_record fat_record;
+    Directory root_dir[10];
     FILE* file = NULL;
+    char buffer[250];
 
     // load parameters
     params_loaded = load_params(argc, argv, fat_filename, command_name);
@@ -61,15 +63,44 @@ int main(int argc, char** argv) {
     // load fat table
     tmp = load_fat_table(file, &fat_record, fat_table);
     if(tmp != OK) {
-        printf("Error while loading fat table from file %d.\n", tmp);
+        printf("Error while loading fat table from file %s.\n", fat_filename);
         return 0;
     }
 
     // print fat table
     printf("\nFAT:\n");
     for(i = 0; i < fat_record.usable_cluster_count; i++) {
-        printf("fat[%d] = %d\n", i, fat_table[i]);
+        switch (fat_table[i]) {
+            case FAT_UNUSED:
+                printf("fat[%d] = FAT_UNUSED\n", i);
+                break;
+            case FAT_FILE_END:
+                printf("fat[%d] = FAT_FILE_END\n", i);
+                break;
+            case FAT_BAD_CLUSTERS:
+                printf("fat[%d] = FAT_BAD_CLUSTERS\n", i);
+                break;
+            case FAT_DIRECTORY:
+                printf("fat[%d] = FAT_DIRECTORY\n", i);
+                break;
+            default:
+                printf("fat[%d] = %d\n", i, fat_table[i]);
+                break;
+        }
     }
+
+
+    // load root directory contents
+    tmp = load_root_dir(file, &fat_record, root_dir);
+    if(tmp < 0) {
+        printf("Error while loading root dir from file %s.\n", fat_filename);
+    }
+    printf("+ROOT\n");
+    for(i = 0; i < tmp; i++) {
+        print_dir(buffer, &root_dir[i], 1);
+        printf(buffer);
+    }
+    printf("--\n");
 
     return 0;
 }
