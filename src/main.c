@@ -34,6 +34,8 @@ int main(int argc, char** argv) {
     char command_name[3];
     int params_loaded = 0;
     int tmp = 0;
+    int i = 0;
+    int32_t fat_table[500];
     Boot_record fat_record;
     FILE* file = NULL;
 
@@ -52,9 +54,22 @@ int main(int argc, char** argv) {
     tmp = load_boot_record(file, &fat_record);
     if(tmp != OK) {
         printf("Error while loading boot record from file %d.\n", tmp);
+        return 0;
     }
     print_boot_record(&fat_record);
 
+    // load fat table
+    tmp = load_fat_table(file, &fat_record, fat_table);
+    if(tmp != OK) {
+        printf("Error while loading fat table from file %d.\n", tmp);
+        return 0;
+    }
+
+    // print fat table
+    printf("\nFAT:\n");
+    for(i = 0; i < fat_record.usable_cluster_count; i++) {
+        printf("fat[%d] = %d\n", i, fat_table[i]);
+    }
 
     return 0;
 }

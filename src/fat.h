@@ -65,9 +65,10 @@ int load_boot_record(FILE* file, Boot_record* boot_record);
 /*
  * Loads a fat table from file. File table is expected to contain
  * boot_record->usable_cluster_count records.
+ *
+ * Returns:
+ * OK: fat table loaded.
  */
-
-// todo: implement
-int load_fat_table(FILE* file, Boot_record* boot_record, int32_t dest);
+int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest);
 
 #endif //SEMESTRALKA_FAT_H
