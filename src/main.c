@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
 
 
     // load root directory contents
-    tmp = load_root_dir(file, &fat_record, root_dir);
+    tmp = load_dir(file, &fat_record, 0, root_dir);
     if(tmp < 0) {
         printf("Error while loading root dir from file %s.\n", fat_filename);
     }
@@ -101,6 +101,17 @@ int main(int argc, char** argv) {
         printf(buffer);
     }
     printf("--\n");
+
+    // try to print clusters
+    print_clusters(file, "cisla.txt\0", &fat_record, fat_table);
+    print_clusters(file, "pohadka.txt\0", &fat_record, fat_table);
+    print_clusters(file, "pohadka\0", &fat_record, fat_table);
+    
+    // try to print content
+    print_file_content(file, "cisla.txt\0", &fat_record, fat_table);
+    print_file_content(file, "pohadka.txt\0", &fat_record, fat_table);
+    print_file_content(file, "msg.txt\0", &fat_record, fat_table);
+    print_file_content(file, "asdads.txt\0", &fat_record, fat_table);
 
     return 0;
 }
