@@ -16,20 +16,39 @@
 #define PRINT_ALL_CMD       "-p"
 
 /*
+ * Creates a new directory 'dirname' in existing directory 'target'.
+ *
+ * Returns:
+ * OK: everything is OK.
+ * PATH_NOT_FOUND: 'target' not found in fat.
+ *
+ */
+int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newdir_name, char* target);
+
+/*
  * Prints the cluster of a filename.
  *
  * Returns:
  * OK: everything is OK.
  * PATH_NOT_FOUND: filename not found in fat.
  */
-int print_clusters(FILE* file, char* filename, Boot_record* boot_record, int32_t* fat);
+int print_clusters(FILE* file,Boot_record* boot_record, int32_t* fat, char* filename);
 
 /*
- * Splits the filename in format dir/dir/dir/fname to an array
- * [dir],[dir],[dir],[filename].
+ * Splits the dirname in formar /dir1/dir2/dir3/ to an array
+ * [],[dir1],[dir2],[dir2].
+ *
+ * If an error occurs, count is set to 0.
+ */
+char** split_dir_path(char *dir_name, int *count);
+
+/*
+ * Splits the filename in format /dir/dir/dir/fname to an array
+ * [dir],[dir],[dir],[fname].
+ * So the /filename would result into [filename] array.
  * The array is returned (must be freed) and the number of items is stored into count.
  *
- * If an error occurs, NULL is returned.
+ * If an error occurs, count is set to 0.
  */
 char** split_file_path(char* filename, int* count);
 
@@ -40,7 +59,7 @@ char** split_file_path(char* filename, int* count);
  * OK: everything is OK.
  * PATH_NOT_FOUND: filename not found in fat.
  */
-int print_file_content(FILE* file, char* filename, Boot_record* boot_record, int32_t* fat);
+int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char* filename);
 
 
 

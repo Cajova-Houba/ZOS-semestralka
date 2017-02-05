@@ -27,6 +27,11 @@
  */
 #define ROOT_CLUSTER            0
 
+/*
+ * No cluster.
+ */
+#define NO_CLUSTER				-1
+
 typedef enum {
     FAT_UNUSED = INT32_MAX - 1,
     FAT_FILE_END = INT32_MAX - 2,
@@ -80,7 +85,7 @@ int load_boot_record(FILE* file, Boot_record* boot_record);
  * OK: fat table loaded.
  * ERR_READING_FILE: error occurs.
  */
-int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest);
+int load_fat_table(FILE *file, Boot_record* boot_record, int32_t* dest);
 
 /*
  * Loads contents of directory from file (in a specified cluster) and stores them to dest.
@@ -93,15 +98,29 @@ int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest);
 int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest);
 
 /*
+ * Counts the number of items in directory.
+ *
+ * Returns:
+ * count: 	everything is ok
+ * NOK: 	if error occurs
+ */
+int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir);
+
+/*
  * Prints directory structure to the buffer.
  * Number of tabs placed before the actual output is set by level.
  */
-void print_dir(char* buffer, Directory* directory, int level);
+void print_dir(char* buffer, Directory *directory, int level);
 
 /*
  * Returns the max number of items (Directory structs) in directory.
  * The dir can be max 1 cluster => num = cluster_size / sizeof(Directory)
  */
 int max_items_in_directory(Boot_record *boot_record);
+
+/*
+ * Returns the number of the free unused cluster found or NO_CLUSTER.
+ */
+int get_free_cluster(int32_t *fat, int fat_size);
 
 #endif //SEMESTRALKA_FAT_H

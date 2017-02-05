@@ -19,9 +19,7 @@ int assert_not_null(void *pointer, char *err_msg) {
 	return OK;
 }
 
-/*
- *
- */
+
 void test_split_file_path1() {
 	char path[255];
 	char **result = NULL;
@@ -29,12 +27,12 @@ void test_split_file_path1() {
 	int i = 0;
 	int state = NOK;
 	char * expected[] = {
-			{"dir-1\0"}, {"dir-2\0"}, {"test.txt\0"}
+			"dir-1\0", "dir-2\0", "test.txt\0"
 	};
 
 	printf("Running test_split_file_path1. ");
 
-	strcpy(path, "dir-1/dir-2/test.txt");
+	strcpy(path, "/dir-1/dir-2/test.txt");
 	result = split_file_path(path, &count);
 	state = assert_not_null((void *) result, "Path is null!");
 	if(state != OK) {
@@ -56,8 +54,96 @@ void test_split_file_path1() {
 	printf("OK.\n");
 }
 
+void test_split_file_path2() {
+	char path[255];
+	char **result = NULL;
+	int count = 0;
+	int i = 0;
+	int state = NOK;
+	char * expected[] = {
+			"cisla.txt"
+	};
+
+	printf("Running test_split_file_path2. ");
+
+	strcpy(path, "/cisla.txt");
+	result = split_file_path(path, &count);
+	state = assert_not_null((void *) result, "Path is null!");
+	if(state != OK) {
+		return;
+	}
+
+	if(count != 1) {
+		printf("\n\tWrong number of path items! Expected: %d, actual: %d.", 1, count);
+		return;
+	}
+
+	for(i = 0; i < count; i++) {
+		if(strcmp(expected[i], result[i]) != 0) {
+			printf("\n\tWrong path item %d! Expected: %s, actual: %s.", i, expected[i], result[i]);
+			return;
+		}
+	}
+
+	printf("OK.\n");
+}
+
+void test_split_dir_path1() {
+	char path[255];
+	char **result = NULL;
+	int count = 0;
+	int state = NOK;
+
+	printf("Running test_split_dir_path1. ");
+
+	strcpy(path, "/");
+	result = split_dir_path(path, &count);
+	state = assert_not_null((void *) result, "Path is null!");
+	if(state != OK) {
+		return;
+	}
+
+	if(count != 1) {
+		printf("\n\tWrong number of path items! Expected: %d, actual: %d.", 1, count);
+		return;
+	}
+
+
+	printf("OK.\n");
+}
+
+void test_split_dir_path2() {
+	char path[255];
+	char **result = NULL;
+	int count = 0;
+	int state = NOK;
+	char * expected[] = {
+				"", "dir"
+		};
+
+	printf("Running test_split_dir_path2. ");
+
+	strcpy(path, "/dir/");
+	result = split_dir_path(path, &count);
+	state = assert_not_null((void *) result, "Path is null!");
+	if(state != OK) {
+		return;
+	}
+
+	if(count != 2) {
+		printf("\n\tWrong number of path items! Expected: %d, actual: %d.", 3, count);
+		return;
+	}
+
+
+	printf("OK.\n");
+}
+
 void run_tests() {
 	// add tests calls here
 	test_split_file_path1();
+	test_split_file_path2();
+	test_split_dir_path1();
+	test_split_dir_path2();
 }
 

@@ -80,6 +80,7 @@ int main(int argc, char** argv) {
     }
 
     // print fat table
+    printf("Printing FAT table...\n");
 //    printf("\nFAT:\n");
 //    for(i = 0; i < fat_record.usable_cluster_count; i++) {
 //        switch (fat_table[i]) {
@@ -100,9 +101,11 @@ int main(int argc, char** argv) {
 //                break;
 //        }
 //    }
+    printf("OK.\n\n");
 
 
     // load root directory contents
+    printf("Loading directory tree...\n");
     tmp = load_dir(file, &fat_record, 0, root_dir);
     if(tmp < 0) {
         printf("Error while loading root dir from file %s.\n", fat_filename);
@@ -113,18 +116,40 @@ int main(int argc, char** argv) {
         printf(buffer);
     }
     printf("--\n");
+    printf("OK.\n\n");
 
     // try to print clusters
-    print_clusters(file, "cisla.txt\0", &fat_record, fat_table);
-    print_clusters(file, "pohadka.txt\0", &fat_record, fat_table);
-    print_clusters(file, "pohadka\0", &fat_record, fat_table);
+    printf("Printing clusters...\n");
+    print_clusters(file, &fat_record, fat_table, "/cisla.txt\0");
+    print_clusters(file, &fat_record, fat_table, "/pohadka.txt\0");
+    print_clusters(file, &fat_record, fat_table, "/pohadka\0");
+    printf("OK\n\n");
 
     // try to print content
-    print_file_content(file, "cisla.txt\0", &fat_record, fat_table);
-    print_file_content(file, "pohadka.txt\0", &fat_record, fat_table);
-    print_file_content(file, "msg.txt\0", &fat_record, fat_table);
-    print_file_content(file, "asdads.txt\0", &fat_record, fat_table);
-    print_file_content(file, "direct-1/asdads.txt\0", &fat_record, fat_table);
+    printf("Printing contents...\n");
+    print_file_content(file, &fat_record, fat_table, "/cisla.txt\0");
+    print_file_content(file, &fat_record, fat_table, "/pohadka.txt\0");
+    print_file_content(file, &fat_record, fat_table, "/msg.txt\0");
+    print_file_content(file, &fat_record, fat_table, "/asdads.txt\0");
+    print_file_content(file, &fat_record, fat_table, "/direct-1/asdads.txt\0");
+    printf("OK\n\n");
 
+    // add a new dir
+    printf("Adding new directory to root...\n");
+    add_directory(file, &fat_record, fat_table, "new_dir", "/");
+    printf("OK\n\n");
+
+    printf("Loading directory tree...\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	printf("+ROOT\n");
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
     return 0;
 }
