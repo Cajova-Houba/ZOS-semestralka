@@ -20,6 +20,12 @@
 
 #define DIR_PRINT_FORMAT        "+%s\n"
 #define FILE_PRINT_FORMAT       "-%s %d %d\n"
+#define PATH_DELIMITER			"/\0"
+
+/*
+ * Cluster where the root dir is.
+ */
+#define ROOT_CLUSTER            0
 
 typedef enum {
     FAT_UNUSED = INT32_MAX - 1,
@@ -77,19 +83,25 @@ int load_boot_record(FILE* file, Boot_record* boot_record);
 int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest);
 
 /*
- * Loads contents of root directory from file and stores them to dest.
+ * Loads contents of directory from file (in a specified cluster) and stores them to dest.
  * Dest is expected to be an array.
  *
  * Returns:
- * number of items in the root dir load
+ * number of items in the dir load
  * ERR_READING_FILE: error occurs.
  */
-int load_root_dir(FILE* file, Boot_record* boot_record, Directory* dest);
+int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest);
 
 /*
  * Prints directory structure to the buffer.
  * Number of tabs placed before the actual output is set by level.
  */
 void print_dir(char* buffer, Directory* directory, int level);
+
+/*
+ * Returns the max number of items (Directory structs) in directory.
+ * The dir can be max 1 cluster => num = cluster_size / sizeof(Directory)
+ */
+int max_items_in_directory(Boot_record *boot_record);
 
 #endif //SEMESTRALKA_FAT_H

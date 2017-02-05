@@ -3,6 +3,13 @@
 #include <errno.h>
 #include "fat.h"
 #include "commands.h"
+#include "tests.h"
+
+/*
+ * 1 = execute the tests.
+ * 0 = execute the app.
+ */
+#define RUN_TESTS	0
 
 /*
  * Tries to load the fat file name and command name.
@@ -41,6 +48,11 @@ int main(int argc, char** argv) {
     FILE* file = NULL;
     char buffer[250];
 
+    if(RUN_TESTS == 1) {
+    	run_tests();
+    	return 0;
+    }
+
     // load parameters
     params_loaded = load_params(argc, argv, fat_filename, command_name);
     if(params_loaded < 1) {
@@ -68,26 +80,26 @@ int main(int argc, char** argv) {
     }
 
     // print fat table
-    printf("\nFAT:\n");
-    for(i = 0; i < fat_record.usable_cluster_count; i++) {
-        switch (fat_table[i]) {
-            case FAT_UNUSED:
-                printf("fat[%d] = FAT_UNUSED\n", i);
-                break;
-            case FAT_FILE_END:
-                printf("fat[%d] = FAT_FILE_END\n", i);
-                break;
-            case FAT_BAD_CLUSTERS:
-                printf("fat[%d] = FAT_BAD_CLUSTERS\n", i);
-                break;
-            case FAT_DIRECTORY:
-                printf("fat[%d] = FAT_DIRECTORY\n", i);
-                break;
-            default:
-                printf("fat[%d] = %d\n", i, fat_table[i]);
-                break;
-        }
-    }
+//    printf("\nFAT:\n");
+//    for(i = 0; i < fat_record.usable_cluster_count; i++) {
+//        switch (fat_table[i]) {
+//            case FAT_UNUSED:
+//                printf("fat[%d] = FAT_UNUSED\n", i);
+//                break;
+//            case FAT_FILE_END:
+//                printf("fat[%d] = FAT_FILE_END\n", i);
+//                break;
+//            case FAT_BAD_CLUSTERS:
+//                printf("fat[%d] = FAT_BAD_CLUSTERS\n", i);
+//                break;
+//            case FAT_DIRECTORY:
+//                printf("fat[%d] = FAT_DIRECTORY\n", i);
+//                break;
+//            default:
+//                printf("fat[%d] = %d\n", i, fat_table[i]);
+//                break;
+//        }
+//    }
 
 
     // load root directory contents
@@ -106,12 +118,13 @@ int main(int argc, char** argv) {
     print_clusters(file, "cisla.txt\0", &fat_record, fat_table);
     print_clusters(file, "pohadka.txt\0", &fat_record, fat_table);
     print_clusters(file, "pohadka\0", &fat_record, fat_table);
-    
+
     // try to print content
     print_file_content(file, "cisla.txt\0", &fat_record, fat_table);
     print_file_content(file, "pohadka.txt\0", &fat_record, fat_table);
     print_file_content(file, "msg.txt\0", &fat_record, fat_table);
     print_file_content(file, "asdads.txt\0", &fat_record, fat_table);
+    print_file_content(file, "direct-1/asdads.txt\0", &fat_record, fat_table);
 
     return 0;
 }
