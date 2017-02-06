@@ -119,7 +119,7 @@ void print_dir(char* buffer, Directory *directory, int level);
 int max_items_in_directory(Boot_record *boot_record);
 
 /*
- * Returns the number of the free unused cluster found or NO_CLUSTER.
+ * Returns the first unused cluster found or NO_CLUSTER.
  */
 int get_free_cluster(int32_t *fat, int fat_size);
 
@@ -136,5 +136,16 @@ int get_data_position(Boot_record *boot_record);
  * the cluster.
  */
 int get_file_position(FILE *file, Boot_record *boot_record, Directory *parent_dir, char *filename);
+
+/*
+ * Will iterate through items in cluster and returns the position of the first free directory found.
+ * The position is relative to the start of the cluster.
+ *
+ * Returns:
+ * position: position is found
+ * NOK: no free position is found.
+ * ERR_READING_FILE: error occurs
+ */
+int get_free_directory_in_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster);
 
 #endif //SEMESTRALKA_FAT_H

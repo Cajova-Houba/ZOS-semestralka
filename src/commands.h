@@ -71,6 +71,14 @@ int print_file_content(FILE *file, Boot_record *boot_record, int32_t *fat, char 
  */
 int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_name);
 
+/*
+ * Deletes the file from fat.
+ *
+ * Returns:
+ * OK: everything is OK.
+ * PATH_NOT_FOUND: file not found.
+ */
+int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filename);
 
 
 #endif //SEMESTRALKA_COMMANDS_H

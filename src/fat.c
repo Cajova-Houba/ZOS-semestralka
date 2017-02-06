@@ -75,9 +75,12 @@ int load_fat_table(FILE* file, Boot_record* boot_record, int32_t* dest) {
 int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest) {
     int status = 0;
     int size = 0;
-    int i = 0;
     int dir_struct_size = 0;
+    int item_count = 0;
+    int items_read = 0;
+    int max_dirs_in_cluster = 0;
     char log_msg[255];
+    Directory tmp_dir;
 
     if(file == NULL || boot_record == NULL) {
         return ERR_READING_FILE;
@@ -95,27 +98,28 @@ int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest)
     }
 
     // start loading the contents
-    // stopping conditions are:
-    //      read bytes >= cluster size
-    //      name starts with '\0'
-    i = -1;
-    size = 0;
-    dir_struct_size = sizeof(Directory);
-    do {
-        i++;
+	// go through the whole cluster and if the dir isn't free, increment the item counter
+	item_count = 0;
+	max_dirs_in_cluster = max_items_in_directory(boot_record);
+	dir_struct_size = sizeof(Directory);
+	for(items_read = 0; items_read < max_dirs_in_cluster; items_read++) {
+		// read next dir
+		errno = 0;
+		status = (int)fread(&tmp_dir, (size_t)dir_struct_size, 1, file);
+		if(status != 1) {
+			sprintf(log_msg, "Error while loading item %d in cluster %d.\n", items_read, cluster);
+			serror(NO_NAME, log_msg);
+			return ERR_READING_FILE;
+		}
 
-        errno = 0;
-        status = (int)fread(&dest[i], (size_t)dir_struct_size, 1, file);
-        if(status != 1) {
-            sprintf(log_msg, "Error while loading root item %d.\n", i);
-            serror(NO_NAME, log_msg);
-        }
+		// dir is not free, add it to dest array
+		if(tmp_dir.name[0] != '\0') {
+			dest[item_count] = tmp_dir;
+			item_count++;
+		}
+	}
 
-        size += dir_struct_size;
-
-    } while (size <= boot_record->cluster_size && dest[i].name[0] != '\0');
-
-    return i;
+    return item_count;
 }
 
 /*
@@ -143,9 +147,11 @@ void print_dir(char* buffer, Directory* directory, int level) {
 int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir) {
     int status = 0;
     int size = 0;
-    int i = 0;
+    int item_count = 0;
+    int items_read = 0;
     int dir_struct_size = 0;
     char log_msg[255];
+    int max_dirs_in_cluster = 0;
     Directory tmp_dir;
 
     if(file == NULL || boot_record == NULL) {
@@ -164,27 +170,27 @@ int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir) {
     }
 
     // start loading the contents
-    // stopping conditions are:
-    //      read bytes >= cluster size
-    //      name starts with '\0'
-    i = -1;
-    size = 0;
+    // go through the whole cluster and if the dir isn't free, increment the item counter
+    item_count = 0;
+    max_dirs_in_cluster = max_items_in_directory(boot_record);
     dir_struct_size = sizeof(Directory);
-    do {
-        i++;
+    for(items_read = 0; items_read < max_dirs_in_cluster; items_read++) {
+    	// read next dir
+		errno = 0;
+		status = (int)fread(&tmp_dir, (size_t)dir_struct_size, 1, file);
+		if(status != 1) {
+			sprintf(log_msg, "Error while loading item %d in cluster %d.\n", items_read, dir->start_cluster);
+			serror(NO_NAME, log_msg);
+			return ERR_READING_FILE;
+		}
 
-        errno = 0;
-        status = (int)fread(&tmp_dir, (size_t)dir_struct_size, 1, file);
-        if(status != 1) {
-            sprintf(log_msg, "Error while loading root item %d.\n", i);
-            serror(NO_NAME, log_msg);
-        }
+		// dir is not free
+		if(tmp_dir.name[0] != '\0') {
+			item_count++;
+		}
+    }
 
-        size += dir_struct_size;
-
-    } while (size <= boot_record->cluster_size && tmp_dir.name[0] != '\0');
-
-    return i;
+    return item_count;
 }
 
 int max_items_in_directory(Boot_record *boot_record) {
@@ -208,4 +214,55 @@ int get_free_cluster(int32_t *fat, int fat_size) {
 
 int get_data_position(Boot_record *boot_record) {
 	return sizeof(Boot_record) + sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies;
+}
+
+int get_free_directory_in_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster) {
+	int status = 0;
+	int size = 0;
+	int items_read = 0;
+	int dir_struct_size = 0;
+	char log_msg[255];
+	int max_dirs_in_cluster = 0;
+	int free_dir_pos = 0;
+	Directory tmp_dir;
+
+	if(file == NULL || boot_record == NULL) {
+		return ERR_READING_FILE;
+	}
+
+	// seek to the start of dir
+	// boot record size + fat and fat copies size + cluster
+	size = get_data_position(boot_record) + cluster*boot_record->cluster_size;
+	errno = 0;
+	status = fseek(file, size, SEEK_SET);
+	if(status != 0) {
+		sprintf(log_msg, "Error while seeking to the root dir: %s.\n",strerror(errno));
+		serror(NO_NAME, log_msg);
+		return ERR_READING_FILE;
+	}
+
+	// start loading the contents
+	// go through the whole cluster and try to find a free directory
+	// if no directory is found return NOK.
+	max_dirs_in_cluster = max_items_in_directory(boot_record);
+	dir_struct_size = sizeof(Directory);
+	free_dir_pos = NOK;
+	for(items_read = 0; items_read < max_dirs_in_cluster; items_read++) {
+		// read next dir
+		errno = 0;
+		status = (int)fread(&tmp_dir, (size_t)dir_struct_size, 1, file);
+		if(status != 1) {
+			sprintf(log_msg, "Error while loading item %d in cluster %d.\n", items_read, cluster);
+			serror(NO_NAME, log_msg);
+			return ERR_READING_FILE;
+		}
+
+		// dir is free
+		if(tmp_dir.name[0] == '\0') {
+			free_dir_pos = items_read * dir_struct_size;
+			break;
+		}
+	}
+
+	return free_dir_pos;
 }

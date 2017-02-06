@@ -69,6 +69,53 @@ void test_split_file_path_bad() {
 	return;
 }
 
+void test_split_dir_path_bad() {
+	char path[255];
+	char **result = NULL;
+	int count = 0;
+	int state = NOK;
+
+	printf("Running test_split_dir_path_bad. ");
+
+	strcpy(path, "");
+	result = split_dir_path(path, &count);
+	state = assert_null(result, "\n\tEmpty path isn't null!\n");
+	if(state != OK) {
+		return;
+	}
+	if(count != 0) {
+		printf("\n\tWrong count returned for empty path! Expected: %d, actual: %d.\n", 0 , count);
+		return;
+	}
+
+
+	strcpy(path, "/ahoj.txt");
+	result = split_dir_path(path, &count);
+	state = assert_null(result, "\n\tBad directory isn't null!");
+	if(state != OK) {
+		return;
+	}
+	if(count != 0) {
+		printf("\n\tWrong count returned for bad directory! Expected: %d, actual: %d.\n", 0, count);
+		return;
+	}
+
+	strcpy(path, "dir/");
+	result = split_dir_path(path, &count);
+	state = assert_null(result, "\n\tPath without root isn't null!\n");
+	if(state != OK) {
+		return;
+	}
+	if(count != 0) {
+		printf("\n\tWrong count returned for path without root! expected: %d, actual: %d.\n", 0, count);
+		return;
+	}
+
+	printf("OK.\n");
+
+	return;
+}
+
 void test_split_file_path1() {
 	char path[255];
 	char **result = NULL;
@@ -165,6 +212,7 @@ void test_split_dir_path2() {
 	char path[255];
 	char **result = NULL;
 	int count = 0;
+	int i = 0;
 	int state = NOK;
 	char * expected[] = {
 				"", "dir"
@@ -180,8 +228,14 @@ void test_split_dir_path2() {
 	}
 
 	if(count != 2) {
-		printf("\n\tWrong number of path items! Expected: %d, actual: %d.\n", 3, count);
+		printf("\n\tWrong number of path items! Expected: %d, actual: %d.\n", 2, count);
 		return;
+	}
+
+	for(i = 0; i < 2; i++) {
+		if(strcmp(result[i], expected[i]) != 0) {
+			printf("\n\tWrong path item on position %d. Expected: %s, actual: %s.\n", i, expected[i], result[i]);
+		}
 	}
 
 
@@ -195,5 +249,6 @@ void run_tests() {
 	test_split_dir_path1();
 	test_split_dir_path2();
 	test_split_file_path_bad();
+	test_split_dir_path_bad();
 }
 

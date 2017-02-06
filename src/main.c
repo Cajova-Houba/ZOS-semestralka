@@ -190,5 +190,95 @@ int main(int argc, char** argv) {
 	printf("Printing FAT table...\n");
 	print_fat(&fat_record, fat_table);
 	printf("OK.\n\n");
+
+
+
+
+
+
+	// add dir1 and dir2
+	// delete dir 1
+	// add dir 3
+	// dir 3 should be in dir 1 place
+	printf("Adding new directory to root...\n");
+	add_directory(file, &fat_record, fat_table, "new_dir1", "/");
+	printf("OK\n\n");
+
+	printf("Adding new directory to root...\n");
+	add_directory(file, &fat_record, fat_table, "new_dir2", "/");
+	printf("OK\n\n");
+
+	printf("+ROOT\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
+
+	printf("Deleting directory... \n");
+	delete_dir(file, &fat_record, fat_table, "/new_dir1/");
+	printf("OK.\n\n");
+
+	printf("+ROOT\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
+
+	printf("Adding new directory to root...\n");
+	add_directory(file, &fat_record, fat_table, "new_dir3", "/");
+	printf("OK\n\n");
+
+	printf("+ROOT\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
+
+
+
+
+	// delete 1-cluster file
+	printf("Deleting a file...\n");
+	delete_file(file, &fat_record, fat_table, "/cisla.txt");
+	printf("OK.\n\n");
+
+	printf("+ROOT\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
+	tmp = load_fat_table(file, &fat_record, fat_table);
+	if(tmp != OK) {
+		printf("Error while loading fat table from file %s.\n", fat_filename);
+		return 0;
+	}
+	printf("Printing FAT table...\n");
+	print_fat(&fat_record, fat_table);
+	printf("OK.\n\n");
+
     return 0;
 }
