@@ -139,6 +139,7 @@ void print_dir(char* buffer, Directory* directory, int level) {
     }
 }
 
+// todo: fix this function
 int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir) {
     int status = 0;
     int size = 0;
@@ -153,7 +154,7 @@ int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir) {
 
     // seek to the start of root dir
     // boot record size + fat and fat copies size + cluster
-    size = sizeof(Boot_record)+ sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies + dir->start_cluster*boot_record->cluster_size;
+    size = get_data_position(boot_record) + dir->start_cluster*boot_record->cluster_size;
     errno = 0;
     status = fseek(file, size, SEEK_SET);
     if(status != 0) {
@@ -203,4 +204,8 @@ int get_free_cluster(int32_t *fat, int fat_size) {
 	}
 
 	return ret;
+}
+
+int get_data_position(Boot_record *boot_record) {
+	return sizeof(Boot_record) + sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies;
 }

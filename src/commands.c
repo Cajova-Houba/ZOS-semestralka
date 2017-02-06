@@ -173,7 +173,7 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
 
     if(found == OK) {
 		// seek to the start of the data section
-		position = sizeof(Boot_record)+ sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies;
+		position = get_data_position(boot_record);
 		fseek(file, position, SEEK_SET);
 		buffer_size = boot_record->cluster_size + 1;
 		buffer = malloc(sizeof(char) * buffer_size);
@@ -203,10 +203,7 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
         printf("%s\n",PATH_NOT_FOUND_MSG);
     }
 
-    // free file path
-    /*for(i = file_path_count-1; i >= 0; i--) {
-    	free(filepath[i]);
-    }*/
+    // clean up
     free(filepath);
     free(dir_items);
     return ret;
@@ -226,6 +223,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	int offset = 0;
 	char **filepath = NULL;
 	Directory tmp_dir;
+	int dir_cluster = FAT_DIRECTORY;
 	int free_cluster = NO_CLUSTER;
 
 	// load root dir
@@ -264,8 +262,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	if(found == OK) {
 		// add new directory
 		// position of the cluster containing target dir
-		position = sizeof(Boot_record) +
-				   sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies +
+		position = get_data_position(boot_record) +
 				   boot_record->cluster_size * target_dir.start_cluster;
 
 		// find the last Directory entry in the cluster
@@ -296,23 +293,114 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 
 				// update fat table and all copies
 				position = sizeof(Boot_record);
-				offset = boot_record->cluster_size * free_cluster;
+				offset = sizeof(int32_t) * free_cluster;
 				for(i = 0; i < boot_record->fat_copies; i++) {
-					// i*fat_size + cluster
-					offset += sizeof(int32_t) * boot_record->usable_cluster_count;
 					// todo: better seek?
 					fseek(file, position+offset, SEEK_SET);
-					fwrite(&free_cluster, sizeof(int), 1, file);
+					fwrite(&dir_cluster, sizeof(int32_t), 1, file);
 
-					ret = OK;
+					// i*fat_size + cluster
+					offset += sizeof(int32_t) * boot_record->usable_cluster_count;
 				}
+				ret = OK;
 			}
 
 		}
 
 	}
 
-	// free file path
+	// clean up
+	free(filepath);
+	free(dir_items);
+	return ret;
+}
+
+int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_name) {
+	int max_items_in_dir = 0;
+	Directory *dir_items = NULL;
+	Directory *tmp_dir = NULL;
+	int item_count = 0;
+	int fp_item = 0;
+	int i = 0;
+	int found = NOK;
+	int ret = ERR_PATH_NOT_FOUND;
+	int file_path_count = 0;
+	int position = 0;
+	int offset = 0;
+	char **filepath = NULL;
+	Directory empty_dir;
+	Directory target_dir;
+	Directory parent_dir;
+	int parent_cluster = 0;
+	int dir_position = 0;
+	int32_t unused_cluster = FAT_UNUSED;
+
+	// load root dir
+	max_items_in_dir = max_items_in_directory(boot_record);
+	dir_items = malloc(sizeof(Directory) * max_items_in_dir);
+	item_count = load_dir(file, boot_record, ROOT_CLUSTER, dir_items);
+
+	// split the filename to path items
+	filepath = split_dir_path(dir_name, &file_path_count);
+	if(file_path_count == 0) {
+		serror(COMMANDS_NAME, "Error while parsing the file path\n");
+		return ret;
+	}
+
+	// set the target and parent dirs to root dir
+	target_dir.start_cluster = ROOT_CLUSTER;
+	parent_dir.start_cluster = ROOT_CLUSTER;
+	parent_cluster = ROOT_CLUSTER;
+	if(file_path_count == 1) {
+		// root dir, mark as found
+		found = OK;
+	}
+
+	// find the target dir
+	// todo: search the whole path, not just the first path item
+	for(fp_item = 1; fp_item < file_path_count; fp_item++) {
+		// for every item in the path, search for dir in the current directory,
+		// then go inside until the last path item is found.
+		for(i = 0; i < item_count; i++) {
+			if(strcmp(filepath[fp_item], dir_items[i].name) == 0 && !dir_items[i].isFile) {
+				found = OK;
+				target_dir = dir_items[i];
+				dir_position = i;
+				break;
+			}
+		}
+	}
+
+	if(found == OK) {
+		// check contents of the directory
+		item_count = count_items_in_dir(file, boot_record, &target_dir);
+		if(item_count != 0) {
+			// dir is not empty
+			ret = ERR_PATH_NOT_EMPTY;
+		} else {
+			position = get_data_position(boot_record);
+
+			// rewrite the Directory entry with empty Directory
+			// to rewrite the directory entry, parent cluster must be found
+			memset(&empty_dir, '\0', sizeof(Directory));
+			offset = parent_cluster * boot_record->cluster_size + sizeof(Directory)*dir_position;
+			fseek(file, position + offset, SEEK_SET);
+			fwrite(&empty_dir, sizeof(Directory), 1, file);
+
+			// mark the cluster in fat (and all it's copies) as UNUSED
+			position = sizeof(Boot_record);
+			offset = target_dir.start_cluster*sizeof(int32_t);
+			for(i = 0; i < boot_record->fat_copies; i++) {
+				fseek(file, position + offset, SEEK_SET);
+				fwrite(&unused_cluster, sizeof(int32_t), 1, file);
+
+				offset += sizeof(int32_t)*boot_record->usable_cluster_count;
+			}
+			ret = OK;
+		}
+	}
+
+	// clean up
 	free(filepath);
 	free(dir_items);
 	return ret;

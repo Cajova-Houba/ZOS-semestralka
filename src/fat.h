@@ -123,4 +123,18 @@ int max_items_in_directory(Boot_record *boot_record);
  */
 int get_free_cluster(int32_t *fat, int fat_size);
 
+/*
+ * Returns the position where data clusters start.
+ *
+ * This position is computed as boot_record_size + fat_size*fat_copies
+ */
+int get_data_position(Boot_record *boot_record);
+
+/*
+ * Returns the position of 'filename' (not the whole path, just the name) in the parent_dir.
+ * This position can then be multiplied by sizeof(Directory) to get the offset from the start of
+ * the cluster.
+ */
+int get_file_position(FILE *file, Boot_record *boot_record, Directory *parent_dir, char *filename);
+
 #endif //SEMESTRALKA_FAT_H

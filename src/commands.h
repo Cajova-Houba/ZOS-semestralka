@@ -23,7 +23,7 @@
  * PATH_NOT_FOUND: 'target' not found in fat.
  *
  */
-int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newdir_name, char* target);
+int add_directory(FILE *file, Boot_record *boot_record, int32_t *fat, char *newdir_name, char *target);
 
 /*
  * Prints the cluster of a filename.
@@ -32,7 +32,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
  * OK: everything is OK.
  * PATH_NOT_FOUND: filename not found in fat.
  */
-int print_clusters(FILE* file,Boot_record* boot_record, int32_t* fat, char* filename);
+int print_clusters(FILE *file,Boot_record *boot_record, int32_t *fat, char *filename);
 
 /*
  * Splits the dirname in formar /dir1/dir2/dir3/ to an array
@@ -50,7 +50,7 @@ char** split_dir_path(char *dir_name, int *count);
  *
  * If an error occurs, count is set to 0.
  */
-char** split_file_path(char* filename, int* count);
+char** split_file_path(char *filename, int *count);
 
 /*
  * Prints the contents of the file (filename).
@@ -59,7 +59,17 @@ char** split_file_path(char* filename, int* count);
  * OK: everything is OK.
  * PATH_NOT_FOUND: filename not found in fat.
  */
-int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char* filename);
+int print_file_content(FILE *file, Boot_record *boot_record, int32_t *fat, char *filename);
+
+/*
+ * Deletes the directory from fat.
+ *
+ * Returns:
+ * OK: everything is OK.
+ * PATH_NOT_FOUND: directory not found.
+ * PATH_NOT_EMPTY: directory contains items.
+ */
+int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_name);
 
 
 
