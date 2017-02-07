@@ -445,7 +445,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 
 	// locate the destination (dir)
 	// separate the filename from the destination path
-	tmp = strlen(dest_filename);
+	tmp = (int)strlen(dest_filename);
 	if(tmp < 2 || dest_filename[tmp -1] == '/') {
 		// not a valid filename
 		return ret;
@@ -512,7 +512,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		// read file by cluster
 		bytes_read = 0;
 		buffer_size = sizeof(char) * boot_record->cluster_size;
-		buffer = malloc(buffer_size);
+		buffer = malloc((size_t)buffer_size);
 		if(buffer == NULL) {
 			serror(COMMANDS_NAME, "Error while allocating memory for buffer.\n");
 			free(destination);
@@ -521,20 +521,20 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		}
 
 		// fill the buffer with zeroes, so that it's correctly stored in fat
-		memset(buffer, '\0', buffer_size);
+		memset(buffer, '\0', (size_t)buffer_size);
 
 		// read from source file to buffer, the size of buffer is actually
         // a cluster size.
 		position = get_data_position(boot_record);
 		next_cluster = new_file.start_cluster;
 		tmp_cluster = new_file.start_cluster;
-		while((bytes_read = fread(buffer, 1, buffer_size, source)) > 0) {
+		while((bytes_read = (int)fread(buffer, 1, (size_t)buffer_size, source)) > 0) {
 			// save from buffer to fat
 			file_size += bytes_read;
 
 			offset = next_cluster * boot_record->cluster_size;
 			fseek(file, position+offset, SEEK_SET);
-			fwrite(buffer, buffer_size, 1, file);
+			fwrite(buffer, (size_t)buffer_size, 1, file);
 
             // buffer full, get next cluster
             if(file_size % buffer_size == 0) {
@@ -545,7 +545,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
                 fat[tmp_cluster] = next_cluster;
 
                 // clear the buffer
-                memset(buffer, '\0', buffer_size);
+                memset(buffer, '\0', (size_t)buffer_size);
             } else {
                 tmp_cluster = next_cluster;
             }
