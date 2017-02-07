@@ -317,6 +317,10 @@ int main(int argc, char** argv) {
     print_clusters(file, &fat_record, fat_table, "/direct-1/multi-c.txt");
     print_file_content(file, &fat_record, fat_table, "/direct-1/multi-c.txt");
 
+    printf("Printing directory tree...\n");
+    print_file_tree(file, &fat_record);
+    printf("OK.\n\n");
+
 	fclose(file);
     return 0;
 }

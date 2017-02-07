@@ -1,3 +1,4 @@
+#include <nss.h>
 #include "commands.h"
 #include "fat.h"
 
@@ -572,4 +573,54 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	// cleanup
 	free(destination);
 	return ret;
+}
+
+void print_items(FILE *file, Boot_record *boot_record, Directory *items, int item_count, int level) {
+    int i = 0;
+    int j = 0;
+    Directory *new_items = NULL;
+    int new_item_count = 0;
+    int max_dir_count = max_items_in_directory(boot_record);
+    int new_level = level + 1;
+
+    for(i = 0; i < item_count; i++) {
+
+        // print \t's
+        for(j = 0; j < level; j++) {
+            printf("\t");
+        }
+
+        if(items[i].isFile) {
+            // print file
+            printf(FILE_PRINT_FORMAT, items[i].name, items[i].start_cluster, items[i].size);
+        } else {
+            // print directory
+            printf(DIR_PRINT_FORMAT, items[i].name, items[i].start_cluster);
+
+            // recursion
+            new_items = (Directory *)malloc(sizeof(Directory) * max_dir_count);
+            new_item_count = load_dir(file, boot_record, items[i].start_cluster, new_items);
+            print_items(file, boot_record, new_items, new_item_count, new_level);
+            free(new_items);
+        }
+    }
+}
+
+void print_file_tree(FILE *file, Boot_record *boot_record) {
+    int item_count = 0;
+    Directory *items = NULL;
+    int max_item_count = max_items_in_directory(boot_record);
+
+    items = (Directory *)malloc(sizeof(Directory) * max_item_count);
+    item_count = load_dir(file, boot_record, ROOT_CLUSTER, items);
+    if(item_count == 0) {
+        printf("EMPTY\n");
+    } else {
+        printf("+ROOT\n");
+        print_items(file, boot_record, items, item_count, 1);
+        printf("--\n");
+    }
+
+    free(items);
+
 }

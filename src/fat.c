@@ -88,7 +88,7 @@ int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest)
 
     // seek to the start of root dir
     // boot record size + fat and fat copies size + cluster
-    size = sizeof(Boot_record)+ sizeof(int32_t)*boot_record->usable_cluster_count*boot_record->fat_copies + cluster*boot_record->cluster_size;
+    size = get_data_position(boot_record) + cluster*boot_record->cluster_size;
     errno = 0;
     status = fseek(file, size, SEEK_SET);
     if(status != 0) {
@@ -115,6 +115,7 @@ int load_dir(FILE *file, Boot_record *boot_record, int cluster, Directory *dest)
 		// dir is not free, add it to dest array
 		if(tmp_dir.name[0] != '\0') {
 			dest[item_count] = tmp_dir;
+            strcpy(dest[item_count].name, tmp_dir.name);
 			item_count++;
 		}
 	}

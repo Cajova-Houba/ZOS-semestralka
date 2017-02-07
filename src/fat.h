@@ -19,7 +19,7 @@
 #define USABLE_CLUSTER_LEN      4
 #define SIGNATURE_LEN           9
 
-#define DIR_PRINT_FORMAT        "+%s\n"
+#define DIR_PRINT_FORMAT        "+%s %d\n"
 #define FILE_PRINT_FORMAT       "-%s %d %d\n"
 #define PATH_DELIMITER			"/\0"
 

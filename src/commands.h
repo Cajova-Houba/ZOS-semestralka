@@ -92,5 +92,15 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
  */
 int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_filename, char *dest_filename);
 
+/*
+ * Prints the array of Directory items.
+ * Each item will be prefixed by \t * level.
+ * If the item is directory, uses recursion to print its contents.
+ */
+void print_items(FILE *file, Boot_record *boot_record, Directory *items, int item_count, int level);
 
+/*
+ * Prints a whole file tree.
+ */
+void print_file_tree(FILE *file, Boot_record *boot_record);
 #endif //SEMESTRALKA_COMMANDS_H
