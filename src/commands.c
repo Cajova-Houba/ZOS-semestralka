@@ -449,7 +449,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		return ret;
 	}
 
-	strcpy(dest_fname_buffer, source_filename);
+	strcpy(dest_fname_buffer, dest_filename);
 	fname_buffer[0] = '\0';
 	for(i = tmp - 1; i >= 0; i--) {
 		if(dest_fname_buffer[i] == '/') {

@@ -393,6 +393,7 @@ int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_l
 	// if the path item is found and it's a dir, load that dir and search again.
 	// if the path item is the last one break the loop.
 	dir_found = NOK;
+	fp_item = 1;
 	while(dir_found == NOK) {
 		fp_item_found = NOK;
 		for(item = 0; item < item_count; item++) {
