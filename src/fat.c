@@ -497,3 +497,22 @@ int get_file_position(FILE *file, Boot_record *boot_record, int parent_dir_clust
 
     return res;
 }
+
+int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat) {
+    int fat_position = sizeof(Boot_record);
+    int tmp = 0;
+    int i = 0;
+
+    tmp = fseek(file, fat_position, SEEK_SET);
+    if(tmp < 0) {
+        return NOK;
+    }
+    for(i = 0; i < boot_record->fat_copies; i++) {
+        tmp = (int)fwrite(fat, sizeof(int32_t), (size_t )boot_record->usable_cluster_count, file);
+        if(tmp < 0) {
+            return NOK;
+        }
+    }
+
+    return OK;
+}

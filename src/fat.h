@@ -197,5 +197,14 @@ int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_l
  */
 int is_cluster_bad(char *cluster, int cluster_size);
 
+/*
+ * Saves the fat to the file. Also saves all copies.
+ *
+ * Returns:
+ * OK: Saved.
+ * NOK: Error.
+ */
+int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat);
+
 
 #endif //SEMESTRALKA_FAT_H

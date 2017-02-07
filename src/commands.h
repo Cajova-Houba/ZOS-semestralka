@@ -157,6 +157,7 @@ int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluste
  *
  * Returns:
  * OK: file checked.
+ * FILE_CHANGED: file had bad clusters, which were fixed but the first cluster remained unchanged
  * Number of the new cluster: new first cluster.
  * NOK: error occurred.
  */
