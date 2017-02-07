@@ -14,6 +14,7 @@
 #define DELETE_DIR_CMD      "-r"
 #define PRINT_FILE_CMD      "-l"
 #define PRINT_ALL_CMD       "-p"
+#define BAD_BLOCKS_CMD       "-v"
 
 /*
  * Creates a new directory 'dirname' in existing directory 'target'.
@@ -88,7 +89,7 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
  * Returns:
  * OK: file added
  * PATH_NOT_FOUND: path (source or dest) not found.
- * ERR_READING_FILE: erro while reading file (with fat or source file).
+ * ERR_READING_FILE: error while reading file (with fat or source file).
  */
 int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_filename, char *dest_filename);
 
@@ -103,4 +104,61 @@ void print_items(FILE *file, Boot_record *boot_record, Directory *items, int ite
  * Prints a whole file tree.
  */
 void print_file_tree(FILE *file, Boot_record *boot_record);
+
+/*
+ * Goes through the fat table and if the bad cluster is detected, its contents will be moved to UNUSED cluster.
+ *
+ * Returns:
+ * number of bad blocks moved: everything is ok.
+ * ERR_READING_FILE: error while reading the file with fat table.
+ */
+int fix_bad_blocks(FILE *file, Boot_record *boot_record, int32_t *fat);
+
+/*
+ * Recursively checks the items in dir and its subdirs. The dir is defined by the cluster.
+ *
+ * Returns:
+ * Number of found and fixed bad clusters: everything was ok.
+ * NOK: error occurred.
+ */
+int check_directory_items_bad_blocks(FILE *file, Boot_record *boot_record, int32_t *fat, Directory *items, int item_count, int parent_cluster);
+
+/*
+ * Checks the whole file tree for bad blocks and if the bad block is detected, its content will be moved to another,
+ * unused cluster.
+ *
+ * Returns:
+ * Number of found and fixed bad blocks: everything was ok.
+ * NOK: error while fixing bad blocks.
+ */
+int check_file_tree(FILE *file, Boot_record *boot_record, int32_t *fat);
+
+/*
+ * Checks the cluster and if it's bad, moves it to first free cluster found.
+ * Also, if the cluster is bad, it will be marked in a fat, so if the fat[cluster]
+ * is pointing to the next cluster, save the value before calling this function.
+ *
+ * Note that the fat in file is not updated.
+ *
+ * If the new cluster number is returned, fat[new_cluster] is still UNUSED.
+ *
+ * Returns:
+ * OK:  cluster is ok.
+ * Number of the new cluster: cluster was bad and was moved to the new cluster.
+ * NOK: error occurred.
+ */
+int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster);
+
+/*
+ * Checks if the file contains any bad blocks. If the file contains bad blocks, those will
+ * be moved to new unused blocks and references in fat will be updated.
+ *
+ * For every bad cluster fixed, the bad_cluster_cntr will be incremented.
+ *
+ * Returns:
+ * OK: file checked.
+ * Number of the new cluster: new first cluster.
+ * NOK: error occurred.
+ */
+int check_file(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster, int *bad_cluster_cntr);
 #endif //SEMESTRALKA_COMMANDS_H

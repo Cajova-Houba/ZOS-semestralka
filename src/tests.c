@@ -242,6 +242,48 @@ void test_split_dir_path2() {
 	printf("OK.\n");
 }
 
+void test_is_cluster_bad() {
+    int small_c_size = BAD_SEQ_LEN*2-1;
+    int bad_c_size = BAD_SEQ_LEN*2+5;
+    int good_c_size = BAD_SEQ_LEN*2+5;
+    int i = 0;
+    int res = 0;
+    char small_cluster[BAD_SEQ_LEN*2-1];    // cluster too small
+    char bad_cluster[BAD_SEQ_LEN*2+5];      // bad cluster - minimal size + some additional space
+    char good_cluster[BAD_SEQ_LEN*2+5];     // good cluster - minimal size + some additional space
+
+    printf("Running test_is_cluster_bad. ");
+
+    // fill clusters
+    for(i = 0; i < BAD_SEQ_LEN; i++) {
+        good_cluster[i] = '\0';
+        good_cluster[good_c_size - 1 - i] = '\0';
+
+        bad_cluster[i] = BAD_BYTE;
+        bad_cluster[bad_c_size - 1 - i] = BAD_BYTE;
+    }
+
+    res = is_cluster_bad(small_cluster, small_c_size);
+    if(res != OK) {
+        printf("\n\tSmall cluster should be bad!\n");
+        return;
+    }
+
+    res = is_cluster_bad(bad_cluster, bad_c_size);
+    if(res != OK) {
+        printf("\n\tBad cluster should be bad!\n");
+        return;
+    }
+
+    res = is_cluster_bad(good_cluster, good_c_size);
+    if(res != NOK) {
+        printf("\n\tGood cluster shouldn't be bad!\n");
+        return;
+    }
+
+    printf("OK.\n");
+}
+
 void run_tests() {
 	// add tests calls here
 	test_split_file_path1();
@@ -250,5 +292,6 @@ void run_tests() {
 	test_split_dir_path2();
 	test_split_file_path_bad();
 	test_split_dir_path_bad();
+    test_is_cluster_bad();
 }
 

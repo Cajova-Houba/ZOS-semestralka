@@ -19,6 +19,12 @@
 #define USABLE_CLUSTER_LEN      4
 #define SIGNATURE_LEN           9
 
+/*
+ * BAD_BYTE * BAD_SEQ_LEN at the start and end of the cluster => bad cluster.
+ */
+#define BAD_BYTE                (char)0xFF
+#define BAD_SEQ_LEN             3
+
 #define DIR_PRINT_FORMAT        "+%s %d\n"
 #define FILE_PRINT_FORMAT       "-%s %d %d\n"
 #define PATH_DELIMITER			"/\0"
@@ -135,8 +141,12 @@ int get_data_position(Boot_record *boot_record);
  * Returns the position of 'filename' (not the whole path, just the name) in the parent_dir.
  * This position can then be multiplied by sizeof(Directory) to get the offset from the start of
  * the cluster.
+ *
+ * Returns:
+ * NOK: file not found.
+ * position: file found.
  */
-int get_file_position(FILE *file, Boot_record *boot_record, Directory *parent_dir, char *filename);
+int get_file_position(FILE *file, Boot_record *boot_record, int parent_dir_cluster, char *filename);
 
 /*
  * Will iterate through items in cluster and returns the position of the first free directory found.
@@ -175,6 +185,17 @@ int find_file(FILE *file, Boot_record *boot_record, char **path, int path_length
  * ERR_READING_FILE: error while reading the file with fat.
  */
 int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_length, Directory *found_directory, Directory *parent_directory);
+
+/*
+ * Will read the cluster and determines if it's bad - starts and ends with FFFFFF.
+ * Cluster is expected to be a char array of cluster size.
+ *
+ *
+ * Returns:
+ * OK: Cluster is bad.
+ * NOK: Cluster is ok.
+ */
+int is_cluster_bad(char *cluster, int cluster_size);
 
 
 #endif //SEMESTRALKA_FAT_H

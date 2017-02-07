@@ -452,3 +452,48 @@ int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_l
 
 	return ret;
 }
+
+int is_cluster_bad(char *cluster, int cluster_size) {
+    int i = 0;
+
+    // the cluster is too small, assume it's bad
+    if(cluster_size < 2*BAD_SEQ_LEN) {
+        return OK;
+    }
+
+    // check the cluster
+    for(i = 0; i < BAD_SEQ_LEN; i++) {
+
+        // start of the cluster
+        if(cluster[i] != BAD_BYTE) {
+            return NOK;
+        }
+
+        // end of the cluster
+        if(cluster[cluster_size-1-i] != BAD_BYTE) {
+            return NOK;
+        }
+    }
+
+    return OK;
+}
+
+int get_file_position(FILE *file, Boot_record *boot_record, int parent_dir_cluster, char *filename) {
+    Directory *items = NULL;
+    int max_item_count = max_items_in_directory(boot_record);
+    int item_count = 0;
+    int i = 0;
+    int res = NOK;
+
+    items = malloc(sizeof(Directory) * max_item_count);
+    item_count = load_dir(file, boot_record, parent_dir_cluster, items);
+    for(i = 0; i < item_count; i++) {
+        if(strcmp(filename, items[i].name) == 0) {
+            res = i;
+            break;
+        }
+    }
+    free(items);
+
+    return res;
+}

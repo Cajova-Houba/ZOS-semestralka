@@ -595,6 +595,11 @@ void print_items(FILE *file, Boot_record *boot_record, Directory *items, int ite
             new_item_count = load_dir(file, boot_record, items[i].start_cluster, new_items);
             print_items(file, boot_record, new_items, new_item_count, new_level);
             free(new_items);
+            // print \t's
+            for(j = 0; j < level; j++) {
+                printf("\t");
+            }
+            printf("--\n");
         }
     }
 }
@@ -615,5 +620,265 @@ void print_file_tree(FILE *file, Boot_record *boot_record) {
     }
 
     free(items);
+}
 
+/*
+ * Checks the cluster and if it's bad, moves it to first free cluster found.
+ * Also, if the cluster is bad, it will be marked in a fat, so if the fat[cluster]
+ * is poiting to the next cluster, save the value before calling this function.
+ *
+ * Returns:
+ * OK:  cluster is ok.
+ * Number of the new cluster: cluster was bad and was moved to the new cluster.
+ * NOK: error occured.
+ */
+int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster) {
+    int data_position = get_data_position(boot_record);
+    int data_offset = cluster*boot_record->cluster_size;
+    int tmp = 0;
+    char log_msg[255];
+    char *buffer = NULL;
+    int buffer_size = sizeof(char) * boot_record->cluster_size;
+    int ret = NOK;
+    int new_cluster = NO_CLUSTER;
+    int cluster_val = fat[cluster];
+
+    // seek
+    tmp = fseek(file, data_position + data_offset, SEEK_SET);
+    if(tmp < 0) {
+        sprintf(log_msg, "Error occurred while seeking to the cluster %d.\n", cluster);
+        serror(COMMANDS_NAME, log_msg);
+        return ret;
+    }
+
+    // read cluster
+    buffer = malloc((size_t)buffer_size);
+    tmp = (int)fread(buffer, (size_t)buffer_size, 1, file);
+    if(tmp != 1) {
+        sprintf(log_msg, "Error occurred while reading the cluster %d.\n", cluster);
+        serror(COMMANDS_NAME, log_msg);
+        free(buffer);
+        return ret;
+    }
+
+    // check cluster
+    tmp = is_cluster_bad(buffer, buffer_size);
+    if(tmp == OK) {
+        // cluster is bad
+        fat[cluster] = FAT_BAD_CLUSTERS;
+        new_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
+        if(new_cluster == NO_CLUSTER) {
+            serror(COMMANDS_NAME, "No free clusters.");
+            fat[cluster] = cluster_val;
+            free(buffer);
+            return ret;
+        }
+
+        // change the last byte to 0
+        // so it's not detected again in another search
+        buffer[buffer_size-1] = '\0';
+
+        // move the cluster to the new one
+        data_offset = new_cluster*boot_record->cluster_size;
+        tmp = fseek(file, data_position + data_offset, SEEK_SET);
+        if(tmp != 1) {
+            sprintf(log_msg, "Error occurred while reading the cluster %d.\n", new_cluster);
+            serror(COMMANDS_NAME, log_msg);
+            fat[cluster] = cluster_val;
+            free(buffer);
+            return ret;
+        }
+        tmp = (int)fwrite(buffer, (size_t)buffer_size, 1, file);
+        if(tmp != 1) {
+            sprintf(log_msg, "Error while writing the new cluster %d.\n", new_cluster);
+            serror(COMMANDS_NAME, log_msg);
+            fat[cluster] = cluster_val;
+            free(buffer);
+            return ret;
+        }
+
+        // return the new cluster number
+        ret = new_cluster;
+
+    } else {
+        // cluster is ok
+        ret = OK;
+    }
+
+    free(buffer);
+    return ret;
+}
+
+int check_file(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster, int *bad_cluster_cntr) {
+    int new_start = NO_CLUSTER;
+    int previous_c = NO_CLUSTER;
+    int old_pointer_c = NO_CLUSTER;
+    int next_cluster = cluster;
+    int tmp = 0;
+
+    while(next_cluster != FAT_FILE_END) {
+        old_pointer_c = fat[next_cluster];
+        tmp = check_cluster(file, boot_record, fat, next_cluster);
+        if(tmp == NOK) {
+            // error occured
+            return NOK;
+        } else if( tmp != OK) {
+            // cluster was bad and was moved to tmp
+            *bad_cluster_cntr = (*bad_cluster_cntr) + 1;
+            if(previous_c != NO_CLUSTER) {
+                // previous cluster defined
+                // update fat
+                fat[previous_c] = tmp;
+                fat[tmp] = old_pointer_c;
+            } else {
+                // previous cluster is not defined
+                // start cluster of the file was bad
+                new_start = tmp;
+                fat[new_start] = old_pointer_c;
+                next_cluster = new_start;
+            }
+        }
+
+        previous_c = next_cluster;
+        next_cluster = fat[next_cluster];
+    }
+
+    // if the start cluster has changed, return it
+    if(new_start == NO_CLUSTER) {
+        return OK;
+    } else {
+        return new_start;
+    }
+}
+
+int check_file_tree(FILE *file, Boot_record *boot_record, int32_t *fat) {
+    int max_items_in_dir = max_items_in_directory(boot_record);
+    Directory *items = NULL;
+    int item_count = 0;
+    int count = 0;
+
+    // load root dir
+    items = malloc(sizeof(Directory) * max_items_in_dir);
+    item_count = load_dir(file, boot_record, ROOT_CLUSTER, items);
+
+    count = check_directory_items_bad_blocks(file, boot_record, fat, items, item_count, ROOT_CLUSTER);
+
+    free(items);
+
+    return count;
+}
+
+int check_directory_items_bad_blocks(FILE *file, Boot_record *boot_record, int32_t *fat, Directory *items, int item_count, int parent_cluster) {
+    int max_items_in_dir = max_items_in_directory(boot_record);
+    Directory *new_items = NULL;
+    int i = 0;
+    int new_item_count = 0;
+    int check_res = 0;
+    int cntr = 0;
+    int data_position = get_data_position(boot_record);
+    int data_offset = 0;
+    int tmp = 0;
+    int fat_position = sizeof(Boot_record);
+
+    // recursively go through items
+    for(i = 0; i < item_count; i++) {
+        if(items[i].isFile) {
+            // check file
+            check_res = check_file(file, boot_record, fat, items[i].start_cluster, &cntr);
+            if(check_res == NOK) {
+                // error occurred
+                return NOK;
+            } else if(check_res != OK) {
+                // start dir was moved
+                // update the directory entry
+                // i is the position of this file in the parent cluster
+                data_offset = parent_cluster * boot_record->cluster_size + i * sizeof(Directory);
+                items[i].start_cluster = check_res;
+                fseek(file, data_position + data_offset, SEEK_SET);
+                fwrite(&items[i], sizeof(Directory), 1, file);
+
+                // update fat
+                fseek(file, fat_position, SEEK_SET);
+                fwrite(fat, sizeof(int32_t) * boot_record->usable_cluster_count, (size_t )boot_record->fat_copies, file);
+
+            }
+        } else {
+            // check dir
+            check_res = check_cluster(file, boot_record, fat, items[i].start_cluster);
+            if(check_res == NOK) {
+                // error occurred
+                return NOK;
+            } else if (check_res != OK) {
+                // cluster was bad and was moved, update the directory entry
+                // i is the position of this dir in the parent cluster
+                data_offset = parent_cluster * boot_record->cluster_size + i * sizeof(Directory);
+                items[i].start_cluster = check_res;
+                fseek(file, data_position + data_offset, SEEK_SET);
+                fwrite(&items[i], sizeof(Directory), 1, file);
+
+                // update fat
+                fat[check_res] = FAT_DIRECTORY;
+                fseek(file, fat_position, SEEK_SET);
+                fwrite(fat, sizeof(int32_t) * boot_record->usable_cluster_count, (size_t )boot_record->fat_copies, file);
+
+                cntr++;
+            }
+
+            // check subdirs
+            new_items = malloc(sizeof(Directory) * max_items_in_dir);
+            if(items == NULL) {
+                serror(COMMANDS_NAME, "Error while allocating memory for directory items!\n");
+                return NOK;
+            }
+            new_item_count = load_dir(file, boot_record, items[i].start_cluster, new_items);
+            tmp = check_directory_items_bad_blocks(file, boot_record, fat, new_items, new_item_count, items[i].start_cluster);
+            if(tmp == NOK) {
+                // error occurred
+                free(new_items);
+                return NOK;
+            }
+            cntr += tmp;
+
+            free(new_items);
+        }
+    }
+
+    return cntr;
+
+}
+
+int fix_bad_blocks(FILE *file, Boot_record *boot_record, int32_t *fat) {
+    int i = 0;
+    int tmp = 0;
+    int fat_position = sizeof(Boot_record);
+    int cntr = 0;
+
+    // check unused clusters
+    for(i = 0; i < boot_record->usable_cluster_count; i++) {
+        if(fat[i] == FAT_UNUSED) {
+            tmp = check_cluster(file, boot_record, fat, i);
+            if(tmp == NOK) {
+                // error occurred
+                return NOK;
+            } else if(tmp != OK) {
+                // bad block moved
+                cntr++;
+            }
+        }
+    }
+
+    // update fat
+    fseek(file, fat_position, SEEK_SET);
+    fwrite(fat, sizeof(int32_t) * boot_record->usable_cluster_count, (size_t )boot_record->fat_copies, file);
+
+    // check the file tree
+    tmp = check_file_tree(file, boot_record, fat);
+    if(tmp == NOK) {
+        // error
+        return NOK;
+    }
+
+    cntr += tmp;
+
+    return cntr;
 }

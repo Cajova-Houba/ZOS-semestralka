@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     char buffer1[255];
     char buffer2[255];
     int state = 0;
+    char log_msg[255];
 
     if(RUN_TESTS == 1) {
     	run_tests();
@@ -182,6 +183,13 @@ int main(int argc, char** argv) {
     } else if(strcmp(command_name, PRINT_ALL_CMD) == 0) {
         // print the file tree, no more args expected
         print_file_tree(file, &fat_record);
+    } else if(strcmp(command_name, BAD_BLOCKS_CMD) == 0) {
+        state = fix_bad_blocks(file, &fat_record, fat_table);
+        if(state != NOK) {
+            printf(OK_MSG);
+            sprintf(log_msg, "%d bad clusters detected and moved.\n", state);
+            sdebug(NO_NAME, log_msg);
+        }
     }
 
 	fclose(file);
