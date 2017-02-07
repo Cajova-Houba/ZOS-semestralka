@@ -5,9 +5,9 @@
 
 #include "errno.h"
 
-#define OK_MSG						"OK"
-#define PATH_NOT_FOUND_MSG          "PATH NOT FOUND"
-#define PATH_NOT_EMPTY_MSG			"PATH NOT EMPTY"
+#define OK_MSG						"OK\n"
+#define PATH_NOT_FOUND_MSG          "PATH NOT FOUND\n"
+#define PATH_NOT_EMPTY_MSG			"PATH NOT EMPTY\n"
 
 typedef enum {
 

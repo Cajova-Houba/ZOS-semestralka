@@ -101,7 +101,6 @@ int print_clusters(FILE* file, Boot_record* boot_record, int32_t* fat, char* fil
     		free(filepath);
     	}
 		serror(COMMANDS_NAME, "Error while parsing the file path\n");
-		printf("%s\n",PATH_NOT_FOUND_MSG);
 		return ret;
 	}
 
@@ -121,8 +120,6 @@ int print_clusters(FILE* file, Boot_record* boot_record, int32_t* fat, char* fil
             tmp = fat[tmp];
         }
         printf("\n");
-    } else {
-        printf("%s\n",PATH_NOT_FOUND_MSG);
     }
 
     free(filepath);
@@ -148,7 +145,6 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
     		free(filepath);
     	}
         serror(COMMANDS_NAME, "Error while parsing the file path\n");
-        printf("%s\n",PATH_NOT_FOUND_MSG);
         return ret;
     }
 
@@ -185,8 +181,6 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
 
         free(buffer);
 
-    } else {
-        printf("%s\n",PATH_NOT_FOUND_MSG);
     }
 
     // clean up
@@ -553,20 +547,19 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		fclose(source);
 		fat[tmp_cluster] = FAT_FILE_END;
 
-		// update fat table
+        // save the new file entry
+        new_file.size = file_size;
+        position = get_data_position(boot_record);
+        offset = dest_dir.start_cluster*boot_record->cluster_size;
+        fseek(file, position+offset+dir_offset, SEEK_SET);
+        fwrite(&new_file, sizeof(new_file), 1, file);
+
+		// update fat table(s)
 		position = sizeof(Boot_record);
 		fseek(file, position, SEEK_SET);
 		for(i = 0; i < boot_record->fat_copies; i++) {
 			fwrite(fat, sizeof(int32_t)*boot_record->usable_cluster_count, 1, file);
 		}
-
-		// save the new file entry
-		new_file.size = file_size;
-
-		position = get_data_position(boot_record);
-		offset = dest_dir.start_cluster*boot_record->cluster_size;
-		fseek(file, position+offset+dir_offset, SEEK_SET);
-		fwrite(&new_file, sizeof(new_file), 1, file);
 	}
 
 

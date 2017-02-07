@@ -144,7 +144,6 @@ void print_dir(char* buffer, Directory* directory, int level) {
     }
 }
 
-// todo: fix this function
 int count_items_in_dir(FILE *file, Boot_record *boot_record, Directory *dir) {
     int status = 0;
     int size = 0;
