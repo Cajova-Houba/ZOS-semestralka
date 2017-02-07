@@ -266,3 +266,188 @@ int get_free_directory_in_cluster(FILE *file, Boot_record *boot_record, int32_t 
 
 	return free_dir_pos;
 }
+
+int find_file(FILE *file, Boot_record *boot_record, char **path, int path_length, Directory *found_file, Directory *parent_directory) {
+	int max_items_in_dir = 0;
+	Directory *dir_items = NULL;
+	int item_count = 0;
+	int ret = NOK;
+	int fp_item = 0;
+	int fp_item_found = NOK;
+	int file_found = NOK;
+	int item = 0;
+	Directory tmp_found_file;
+	Directory tmp_parent_directory;
+
+	// load root dir
+	max_items_in_dir = max_items_in_directory(boot_record);
+	dir_items = malloc(sizeof(Directory) * max_items_in_dir);
+	item_count = load_dir(file, boot_record, ROOT_CLUSTER, dir_items);
+	if(item_count == ERR_READING_FILE) {
+		free(dir_items);
+		return ERR_READING_FILE;
+	}
+	tmp_parent_directory.start_cluster = ROOT_CLUSTER;
+	tmp_parent_directory.name[0] = '\0';
+
+	// iterate through the items in the current directory and try to find the path item
+	// if the path item is found and it's a dir, load that dir and search again.
+	// if the path item is the last one (file we're searching for) break the loop.
+	file_found = NOK;
+	while(file_found == NOK) {
+		fp_item_found = NOK;
+		for(item = 0; item < item_count; item++) {
+			if(fp_item == path_length -1 ) {
+				// we're searching for the last path item = file
+				if(dir_items[item].isFile && strcmp(dir_items[item].name, path[fp_item]) == 0) {
+					// file found
+					fp_item_found = OK;
+					file_found = OK;
+					ret = item;
+					tmp_found_file = dir_items[item];
+					strcpy(tmp_found_file.name, dir_items[item].name);
+					break;
+				}
+			} else {
+				// we're searching for other path item = dir
+				if(!dir_items[item].isFile && strcmp(dir_items[item].name, path[fp_item]) == 0) {
+					fp_item_found = OK;
+					tmp_parent_directory = dir_items[item];
+					strcpy(tmp_parent_directory.name, dir_items[item].name);
+					break;
+				}
+			}
+		}
+
+		// check if the file path item was found in the current directory
+		if(fp_item_found == OK) {
+			if(file_found != OK) {
+				// file path item found, but the not the file => move to the next dir
+				// clear the dir_items array and load the contens of the next directory
+				memset(dir_items, '\0', sizeof(Directory)*max_items_in_dir);
+				item_count = load_dir(file, boot_record, tmp_parent_directory.start_cluster, dir_items);
+				if(item_count == ERR_READING_FILE) {
+					free(dir_items);
+					return ERR_READING_FILE;
+				}
+				fp_item++;
+			} else {
+				// file found
+				if(found_file != NULL) {
+					*found_file = tmp_found_file;
+					strcpy(found_file->name, tmp_found_file.name);
+				}
+				if(parent_directory != NULL) {
+					*parent_directory = tmp_parent_directory;
+					strcpy(parent_directory->name, tmp_parent_directory.name);
+				}
+
+			}
+		} else {
+			// the file was not found
+			free(dir_items);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_length, Directory *found_directory, Directory *parent_directory) {
+	int max_items_in_dir = 0;
+	Directory *dir_items = NULL;
+	int item_count = 0;
+	int ret = NOK;
+	int fp_item = 0;
+	int fp_item_found = NOK;
+	int dir_found = NOK;
+	int item = 0;
+	Directory tmp_found_directory;
+	Directory tmp_parent_directory;
+
+	if (path_length == 1) {
+		// root directory
+		if(found_directory != NULL) {
+			found_directory->start_cluster = ROOT_CLUSTER;
+		}
+
+		if(parent_directory != NULL) {
+			parent_directory->start_cluster = ROOT_CLUSTER;
+		}
+
+		return 0;
+	}
+
+	// load root dir
+	max_items_in_dir = max_items_in_directory(boot_record);
+	dir_items = malloc(sizeof(Directory) * max_items_in_dir);
+	item_count = load_dir(file, boot_record, ROOT_CLUSTER, dir_items);
+	if(item_count == ERR_READING_FILE) {
+		free(dir_items);
+		return ERR_READING_FILE;
+	}
+	tmp_parent_directory.start_cluster = ROOT_CLUSTER;
+	tmp_parent_directory.name[0] = '\0';
+
+	// iterate through the items in the current directory and try to find the path item
+	// if the path item is found and it's a dir, load that dir and search again.
+	// if the path item is the last one break the loop.
+	dir_found = NOK;
+	while(dir_found == NOK) {
+		fp_item_found = NOK;
+		for(item = 0; item < item_count; item++) {
+			if(fp_item == path_length -1 ) {
+				// we're searching for the last path item
+				if(!dir_items[item].isFile && strcmp(dir_items[item].name, path[fp_item]) == 0) {
+					// dir found
+					fp_item_found = OK;
+					dir_found = OK;
+					ret = item;
+					tmp_found_directory = dir_items[item];
+					strcpy(tmp_found_directory.name, dir_items[item].name);
+					break;
+				}
+			} else {
+				// we're searching for other path item
+				if(!dir_items[item].isFile && strcmp(dir_items[item].name, path[fp_item]) == 0) {
+					fp_item_found = OK;
+					tmp_parent_directory = dir_items[item];
+					strcpy(tmp_parent_directory.name, dir_items[item].name);
+					break;
+				}
+			}
+		}
+
+		// check if the file path item was found in the current directory
+		if(fp_item_found == OK) {
+			if(dir_found != OK) {
+				// file path item found, but the not the file => move to the next dir
+				// clear the dir_items array and load the contents of the next directory
+				memset(dir_items, '\0', sizeof(Directory)*max_items_in_dir);
+				item_count = load_dir(file, boot_record, tmp_parent_directory.start_cluster, dir_items);
+				if(item_count == ERR_READING_FILE) {
+					free(dir_items);
+					return ERR_READING_FILE;
+				}
+				fp_item++;
+			} else {
+				// directory found
+				if(found_directory != NULL) {
+					*found_directory = tmp_found_directory;
+					strcpy(found_directory->name, tmp_found_directory.name);
+				}
+				if(parent_directory != NULL) {
+					*parent_directory = tmp_parent_directory;
+					strcpy(parent_directory->name, tmp_parent_directory.name);
+				}
+
+			}
+		} else {
+			// the file was not found
+			free(dir_items);
+			break;
+		}
+	}
+
+	return ret;
+}

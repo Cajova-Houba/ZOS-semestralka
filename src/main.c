@@ -38,7 +38,7 @@ int load_params(int argc, char** argv, char* fat_filename, char* command_name) {
 
 void print_fat(Boot_record *boot_record, int32_t* fat) {
 	int i = 0;
-	for(i = 0; i < /*boot_record->usable_cluster_count*/30; i++) {
+	for(i = 0; i < /*boot_record->usable_cluster_count*/50; i++) {
 		switch (fat[i]) {
 			case FAT_UNUSED:
 				printf("fat[%d] = FAT_UNUSED\n", i);
@@ -280,5 +280,32 @@ int main(int argc, char** argv) {
 	print_fat(&fat_record, fat_table);
 	printf("OK.\n\n");
 
+
+
+	// add new file
+	printf("Adding new file...\n");
+	tmp = add_file(file, &fat_record, fat_table, "/home/zdenda/tmp/test_file.txt", "/test_f.txt");
+	printf("OK.\n\n");
+	printf("+ROOT\n");
+	tmp = load_dir(file, &fat_record, 0, root_dir);
+	if(tmp < 0) {
+		printf("Error while loading root dir from file %s.\n", fat_filename);
+	}
+	for(i = 0; i < tmp; i++) {
+		print_dir(buffer, &root_dir[i], 1);
+		printf(buffer);
+	}
+	printf("--\n");
+	printf("OK.\n\n");
+	tmp = load_fat_table(file, &fat_record, fat_table);
+	if(tmp != OK) {
+		printf("Error while loading fat table from file %s.\n", fat_filename);
+		return 0;
+	}
+	printf("Printing FAT table...\n");
+	print_fat(&fat_record, fat_table);
+	printf("OK.\n\n");
+
+	fclose(file);
     return 0;
 }

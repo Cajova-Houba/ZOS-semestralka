@@ -80,5 +80,17 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
  */
 int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filename);
 
+/*
+ * Adds a file source_filename to the path of fat. The path is specified by dest_filename. If the path doens't exist
+ * (in the source or dest), PATH_NOT_FOUND will be returned. Note that the only the dest path must exist in the fat, not the
+ * file (it will be created by this method).
+ *
+ * Returns:
+ * OK: file added
+ * PATH_NOT_FOUND: path (source or dest) not found.
+ * ERR_READING_FILE: erro while reading file (with fat or source file).
+ */
+int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_filename, char *dest_filename);
+
 
 #endif //SEMESTRALKA_COMMANDS_H

@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "errors.h"
 #include "slog.h"
@@ -147,5 +148,33 @@ int get_file_position(FILE *file, Boot_record *boot_record, Directory *parent_di
  * ERR_READING_FILE: error occurs
  */
 int get_free_directory_in_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluster);
+
+/*
+ * Tries to locate the file by it's full filename (specified by path).
+ * If the file is found, found_file and parent_directory will be filled (if not NULL).
+ * if the file is in the root dir, parent_directory.start_cluster will be ROOT_CLUSTER.
+ *
+ * Returns:
+ * file position in parent dir: file found.
+ * NOK:	file not found.
+ * ERR_READING_FILE: error while reading the file with fat.
+ */
+int find_file(FILE *file, Boot_record *boot_record, char **path, int path_length, Directory *found_file, Directory *parent_directory);
+
+/*
+ * Tries to locate the directory by it's full name (specified by path).
+ * if the directory is found, found_directory and parent_directory will be filled (if not NULL).
+ * If the directory is in the root dir, parent_directory.start_cluster will be ROOT_CLUSTER.
+ *
+ * If the path_length is 1, it's assumed that ROOT directory is to be located. In this case, both found_directory and parent_directory
+ * will have it's start_cluster field set to ROOT_CLUSTER and 0 will be returned.
+ *
+ * Returns:
+ * dir position in parent dir: dir found.
+ * NOK: dir not found.
+ * ERR_READING_FILE: error while reading the file with fat.
+ */
+int find_directory(FILE *file, Boot_record *boot_record, char **path, int path_length, Directory *found_directory, Directory *parent_directory);
+
 
 #endif //SEMESTRALKA_FAT_H
