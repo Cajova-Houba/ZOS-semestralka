@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "fat.h"
 
 char** split_dir_path(char *dir_name, int *count) {
 	int cntr = 0;
@@ -492,7 +493,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	// write the file to the fat
 	if(dest_exists == OK) {
 		strcpy(new_file.name, fname_buffer);
-		new_file.start_cluster = NO_CLUSTER;
+		new_file.start_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
 		new_file.isFile = true;
 		file_size = 0;
 
@@ -523,25 +524,21 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 
 		// read from source file to buffer
 		position = get_data_position(boot_record);
-		next_cluster = NO_CLUSTER;
-		tmp_cluster = NO_CLUSTER;
-		while((bytes_read = fread(buffer, buffer_size, 1, source)) > 0) {
+		next_cluster = new_file.start_cluster;
+		tmp_cluster = new_file.start_cluster;
+		while((bytes_read = fread(buffer, 1, buffer_size, source)) > 0) {
 			// save from buffer to fat
-			next_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
-			if(tmp_cluster != NO_CLUSTER) {
-				fat[tmp_cluster] = next_cluster;
-			}
-			if(new_file.start_cluster == NO_CLUSTER) {
-				// set the start cluster
-				new_file.start_cluster = next_cluster;
-			}
-			file_size += bytes_read*buffer_size;
+			file_size += bytes_read;
 
 			offset = next_cluster * boot_record->cluster_size;
 			fseek(file, position+offset, SEEK_SET);
 			fwrite(buffer, buffer_size, 1, file);
 
+			// mark it as FAT_FILE_END so that get_free_cluster() function will not return it
 			tmp_cluster = next_cluster;
+			fat[tmp_cluster] = FAT_FILE_END;
+			next_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
+			fat[tmp_cluster] = next_cluster;
 		}
 		fclose(source);
 		fat[tmp_cluster] = FAT_FILE_END;
@@ -550,7 +547,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		position = sizeof(Boot_record);
 		fseek(file, position, SEEK_SET);
 		for(i = 0; i < boot_record->fat_copies; i++) {
-			fwrite(fat, sizeof(fat), 1, file);
+			fwrite(fat, sizeof(int32_t)*boot_record->usable_cluster_count, 1, file);
 		}
 
 		// save the new file entry
@@ -564,9 +561,6 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 
 
 	// cleanup
-	if(source != NULL) {
-		fclose(source);
-	}
 	free(destination);
 	return ret;
 }
