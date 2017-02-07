@@ -522,7 +522,8 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		// fill the buffer with zeroes, so that it's correctly stored in fat
 		memset(buffer, '\0', buffer_size);
 
-		// read from source file to buffer
+		// read from source file to buffer, the size of buffer is actually
+        // a cluster size.
 		position = get_data_position(boot_record);
 		next_cluster = new_file.start_cluster;
 		tmp_cluster = new_file.start_cluster;
@@ -534,11 +535,19 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 			fseek(file, position+offset, SEEK_SET);
 			fwrite(buffer, buffer_size, 1, file);
 
-			// mark it as FAT_FILE_END so that get_free_cluster() function will not return it
-			tmp_cluster = next_cluster;
-			fat[tmp_cluster] = FAT_FILE_END;
-			next_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
-			fat[tmp_cluster] = next_cluster;
+            // buffer full, get next cluster
+            if(file_size % buffer_size == 0) {
+                // mark it as FAT_FILE_END so that get_free_cluster() function will not return it
+                tmp_cluster = next_cluster;
+                fat[tmp_cluster] = FAT_FILE_END;
+                next_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
+                fat[tmp_cluster] = next_cluster;
+
+                // clear the buffer
+                memset(buffer, '\0', buffer_size);
+            } else {
+                tmp_cluster = next_cluster;
+            }
 		}
 		fclose(source);
 		fat[tmp_cluster] = FAT_FILE_END;

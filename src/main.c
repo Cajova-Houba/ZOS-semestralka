@@ -306,6 +306,17 @@ int main(int argc, char** argv) {
 	print_fat(&fat_record, fat_table);
 	printf("OK.\n\n");
 
+    printf("Printing contents...\n");
+    print_file_content(file, &fat_record, fat_table, "/test_f.txt");
+    printf("OK.\n\n");
+
+    printf("Adding multi-cluster file...\n");
+    add_file(file, &fat_record, fat_table, "/home/zdenda/tmp/multi_clust_file.txt", "/direct-1/multi-c.txt");
+    printf("OK.\n\n");
+
+    print_clusters(file, &fat_record, fat_table, "/direct-1/multi-c.txt");
+    print_file_content(file, &fat_record, fat_table, "/direct-1/multi-c.txt");
+
 	fclose(file);
     return 0;
 }
