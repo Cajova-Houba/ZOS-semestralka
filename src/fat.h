@@ -213,7 +213,7 @@ int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat);
  * OK: filename found.
  * NOK: filename not found.
  */
-int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster);
+int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster, bool is_file);
 
 /*
  * Returns the number of clusters marked as UNUSED.

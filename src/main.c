@@ -73,6 +73,10 @@ void print_result(int state) {
             break;
         case ERR_PATH_NOT_EMPTY:
             printf(PATH_NOT_EMPTY_MSG);
+            break;
+        case ERR_NO_FREE_ROOM:
+            printf(NO_FREE_ROOM_MSG);
+            break;
         default:
             printf(ERR_MSG);
     }

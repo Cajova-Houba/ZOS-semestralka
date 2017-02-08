@@ -517,7 +517,7 @@ int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat) {
     return OK;
 }
 
-int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster) {
+int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster, bool is_file) {
     int max_items_count = max_items_in_directory(boot_record);
     Directory *items = malloc(sizeof(Directory) * max_items_count);
     int item_count = load_dir(file, boot_record, directory_cluster, items);
@@ -525,7 +525,7 @@ int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int direct
     int found = NOK;
 
     for(i = 0; i < item_count; i++) {
-        if(strcmp(filename, items[i].name) == 0) {
+        if(strcmp(filename, items[i].name) == 0 && items->isFile == is_file) {
             found = OK;
             break;
         }

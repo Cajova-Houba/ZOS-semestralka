@@ -52,12 +52,27 @@ typedef struct {
     sem_t empty;
 } Consumer_args;
 
+typedef struct {
+    FILE *file;
+    Boot_record *boot_record;
+    int32_t *fat;
+} Fat_updater_args;
+
 /*
  * A consumer thread which will write items from content_buffer to file.
  * The consumer will keep writing items while the stop_condition is NOK.
  * Mutexes and semaphores are expected to be already initialized.
  */
 void *writer_thread(void *thread_args);
+
+/*
+ * A consumer thread which will print items from content_buffer.
+ * In this case, the Writable.position will indicate the position of item in the context
+ * of the whole data package so that it will be printed in right order.
+ *
+ * Items are expected to be on position % CONTENT_BUFFER_SIZE index in content buffer.
+ */
+void *printer_thread(void *thread_args);
 
 /*
  * Creates a new directory 'dirname' in existing directory 'target'.

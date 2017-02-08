@@ -9,8 +9,10 @@ void *writer_thread(void *thread_args) {
     Consumer_args *args = (Consumer_args*)thread_args;
     int tmp = 0;
     char log_msg[255];
+    int found = NOK;
 
     while(stop == NOK) {
+        found = NOK;
 
         // take from content_buffer
         sem_wait(&args->full);
@@ -20,20 +22,23 @@ void *writer_thread(void *thread_args) {
                 item = args->content_buffer[i];
                 memcpy(item.cluster, args->content_buffer[i].cluster, (size_t )(args->content_buffer[i].cluster_size));
                 args->content_buffer[i].write = NOK;
+                found = OK;
                 break;
             }
         }
         pthread_mutex_unlock(&args->mutex);
 
-        // write contents to file
-        tmp = fseek(args->file, item.position, SEEK_SET);
-        if(tmp < 0) {
-            sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item.position);
-            serror(WRITER_THREAD, log_msg);
-        } else {
-            tmp = (int)fwrite(item.cluster, (size_t)(item.cluster_size), 1, args->file);
-            if(tmp <= 0) {
-                serror(WRITER_THREAD, "Error while writing to FAT file.\n");
+        if(found == OK) {
+            // write contents to file
+            tmp = fseek(args->file, item.position, SEEK_SET);
+            if(tmp < 0) {
+                sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item.position);
+                serror(WRITER_THREAD, log_msg);
+            } else {
+                tmp = (int)fwrite(item.cluster, (size_t)(item.cluster_size), 1, args->file);
+                if(tmp <= 0) {
+                    serror(WRITER_THREAD, "Error while writing to FAT file.\n");
+                }
             }
         }
 
@@ -43,6 +48,64 @@ void *writer_thread(void *thread_args) {
         pthread_mutex_unlock(&args->mutex);
 
         sem_post(&args->empty);
+    }
+
+    return NULL;
+}
+
+void *printer_thread(void *thread_args) {
+    int stop = NOK;
+    Writable item;
+    int i = 0;
+    Consumer_args *args = (Consumer_args*)thread_args;
+    int expected = 0;
+    int found = NOK;
+    int tmp = 0;
+
+    while (stop == NOK) {
+        found = NOK;
+        // take from content_buffer
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
+        for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+            if(args->content_buffer[i].write == OK && args->content_buffer[i].position == expected) {
+                item = args->content_buffer[i];
+                memcpy(item.cluster, args->content_buffer[i].cluster, (size_t )(args->content_buffer[i].cluster_size));
+                args->content_buffer[i].write = NOK;
+                expected++;
+                found = OK;
+            }
+        }
+        pthread_mutex_unlock(&args->mutex);
+
+        if(found == OK) {
+            // print content
+//            printf("%d (%d):\n%s\n", expected-1, i, item.cluster);
+            printf("%s", item.cluster);
+        }
+
+        // mark the item as free and check the stop condition
+        pthread_mutex_lock(&args->mutex);
+        stop = *(args->stop_condition);
+        pthread_mutex_unlock(&args->mutex);
+
+        sem_post(&args->empty);
+    }
+
+    // print rest of the items
+    // if the currently desire position are at the end of the buffer and other (with higher position number) are on the beginning,
+    // data wouldn't be printed completely. So the buffer must be iterated over two times
+    for(tmp = 0; tmp < 2; tmp++) {
+        for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+            if(args->content_buffer[i].write == OK && args->content_buffer[i].position == expected) {
+                item = args->content_buffer[i];
+                memcpy(item.cluster, args->content_buffer[i].cluster, (size_t )(args->content_buffer[i].cluster_size));
+                args->content_buffer[i].write = NOK;
+                expected++;
+//                printf("%d (%d):\n%s\n", expected, i, item.cluster);
+                printf("%s", item.cluster);
+            }
+        }
     }
 
     return NULL;
@@ -183,6 +246,37 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
     int buffer_size = 0;
     char** filepath = NULL;
     Directory found_file;
+    Consumer_args consumer_args;
+    Writable content_buffer[CONTENT_BUFFER_SIZE];
+    int stop_condition = NOK;
+    pthread_t consumer = NO_THREAD;
+    int i = 0;
+    int cntr = 0;
+
+    // init content buffer
+    for(tmp = 0; tmp < CONTENT_BUFFER_SIZE; tmp++) {
+        content_buffer[tmp].write = NOK;
+        content_buffer[tmp].cluster = NULL;
+    }
+
+    // init consumer arguments
+    if(sem_init(&(consumer_args.empty), 0, CONTENT_BUFFER_SIZE) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing 'empty' semaphore for consumer thread in print_content function.\n");
+        return NOK;
+    }
+    if(sem_init(&(consumer_args.full), 0, 0) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing 'full' semaphore for consumer thread in print_content function.\n");
+        return NOK;
+    }
+    if(pthread_mutex_init(&(consumer_args.mutex), NULL) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing mutex for consumer thread in print_content function.\n");
+        return NOK;
+    }
+    consumer_args.content_buffer = content_buffer;
+    consumer_args.stop_condition = &stop_condition;
+    consumer_args.file = file;
+    consumer_args.boot_record = boot_record;
+    consumer_args.fat = fat;
 
     // split the filename to file path
     filepath = split_file_path(filename, &file_path_count);
@@ -211,25 +305,65 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
         printf("%s: ",filename);
         tmp = found_file.start_cluster;
 
+        // start the printing thread
+        sdebug(COMMANDS_NAME, "Starting the consumer thread.\n");
+        if (pthread_create(&consumer, NULL, printer_thread, (void *)(&consumer_args)) != 0) {
+            serror(COMMANDS_NAME, "Error while creating consumer thread in print_content function.\n");
+            free(buffer);
+            return ret;
+        }
         while(tmp != FAT_FILE_END){
 
-			// read cluster
-			// printf("\n>>>>Reading from cluster %d\n", tmp);
-			offset = boot_record->cluster_size*tmp;
-			fseek(file, position + offset, SEEK_SET);
-			fread(buffer, boot_record->cluster_size, 1, file);
-			buffer[buffer_size] = '\0';
+            sem_wait(&consumer_args.empty);
 
-            printf("%s",buffer);
+			// read cluster and place it to the content_buffer
+            offset = boot_record->cluster_size*tmp;
+            fseek(file, position + offset, SEEK_SET);
+            fread(buffer, (size_t )boot_record->cluster_size, 1, file);
+            buffer[buffer_size] = '\0';
+
+            pthread_mutex_lock(&consumer_args.mutex);
+            for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+                if(content_buffer[i].write == NOK) {
+//                    printf("Cluster %d loaded on position %d.\n", cntr, i);
+                    if(content_buffer[i].cluster == NULL) {
+                        // if the cluster is null, allocate memory
+                        content_buffer[i].cluster = malloc((size_t )buffer_size);
+                    }
+                    memcpy(content_buffer[i].cluster, buffer, (size_t )buffer_size);
+                    content_buffer[i].cluster_size = buffer_size;
+                    content_buffer[i].position = cntr;
+                    content_buffer[i].write = OK;
+                    cntr++;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&consumer_args.mutex);
+
+            sem_post(&consumer_args.full);
+
+            // next cluster
             tmp = fat[tmp];
         }
-        printf("\n");
+
+        // stop the consumer
+        sdebug(COMMANDS_NAME, "Joining the consumer thread in print_content function.\n");
+        pthread_mutex_lock(&consumer_args.mutex);
+        stop_condition = OK;
+        pthread_mutex_unlock(&consumer_args.mutex);
+        sem_post(&consumer_args.full);
+        pthread_join(consumer, NULL);
 
         free(buffer);
 
     }
 
     // clean up
+    for(tmp = 0; tmp < CONTENT_BUFFER_SIZE; tmp++) {
+        if(content_buffer[tmp].cluster != NULL) {
+            free(content_buffer[tmp].cluster);
+        }
+    }
     free(filepath);
     return ret;
 }
@@ -264,7 +398,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	if(tmp >= 0) {
 
         // check that the dir doesn't exist
-		found = find_in_dir(file, boot_record, newdir_name, target_dir.start_cluster);
+		found = find_in_dir(file, boot_record, newdir_name, target_dir.start_cluster, false);
         if(found == OK) {
             sprintf(log_msg, "Directory %s already exists in %s.\n", newdir_name, target);
             sdebug(COMMANDS_NAME, log_msg);
@@ -289,11 +423,13 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 			// no room
 			sprintf(log_msg, "No free room in the cluster %d.\n", target_dir.start_cluster);
 			serror(COMMANDS_NAME, log_msg);
+            ret = ERR_NO_FREE_ROOM;
 		} else {
 			// find a free cluster for the dir
 			free_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
 			if(free_cluster == NO_CLUSTER) {
 				serror(COMMANDS_NAME, "No free cluster found.");
+                ret = ERR_NO_FREE_ROOM;
 			} else {
 
 				// fill new directory
@@ -308,16 +444,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 				fwrite(&tmp_dir,sizeof(Directory), 1, file);
 
 				// update fat table and all copies
-				position = sizeof(Boot_record);
-				offset = sizeof(int32_t) * free_cluster;
-				for(i = 0; i < boot_record->fat_copies; i++) {
-					// todo: better seek?
-					fseek(file, position+offset, SEEK_SET);
-					fwrite(&dir_cluster, sizeof(int32_t), 1, file);
-
-					// i*fat_size + cluster
-					offset += sizeof(int32_t) * boot_record->usable_cluster_count;
-				}
+				update_fat(file, boot_record, fat);
 				ret = OK;
 			}
 
@@ -344,7 +471,6 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
 	Directory parent_dir;
 	int parent_cluster = 0;
 	int dir_position = 0;
-	int32_t unused_cluster = FAT_UNUSED;
 
 	// split the filename to path items
 	filepath = split_dir_path(dir_name, &file_path_count);
@@ -378,14 +504,9 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
 			fwrite(&empty_dir, sizeof(Directory), 1, file);
 
 			// mark the cluster in fat (and all it's copies) as UNUSED
-			position = sizeof(Boot_record);
-			offset = target_dir.start_cluster*sizeof(int32_t);
-			for(i = 0; i < boot_record->fat_copies; i++) {
-				fseek(file, position + offset, SEEK_SET);
-				fwrite(&unused_cluster, sizeof(int32_t), 1, file);
+            fat[target_dir.start_cluster] = FAT_UNUSED;
+            update_fat(file, boot_record, fat);
 
-				offset += sizeof(int32_t)*boot_record->usable_cluster_count;
-			}
 			ret = OK;
 		}
 	}
@@ -403,14 +524,12 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
 	int file_path_count = 0;
 	int position = 0;
 	int offset = 0;
-	int fat_offset = 0;
 	char **filepath = NULL;
 	Directory empty_dir;
 	Directory target_dir;
 	Directory parent_dir;
 	int prev_cluster = 0;
 	int file_position = 0;
-	int32_t unused_cluster = FAT_UNUSED;
 	int tmp_clstr = 0;
 
 
@@ -558,7 +677,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	}
 
     // check that the file doesn't exist yet
-    tmp = find_in_dir(file, boot_record, fname_buffer, dest_dir.start_cluster);
+    tmp = find_in_dir(file, boot_record, fname_buffer, dest_dir.start_cluster, true);
     if(tmp != NOK) {
         sprintf(log_msg, "Error: file %s already exists.\n", fname_buffer);
         serror(COMMANDS_NAME, log_msg);
