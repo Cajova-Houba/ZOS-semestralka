@@ -1,6 +1,48 @@
-#include <nss.h>
 #include "commands.h"
-#include "fat.h"
+
+void *writer_thread(void *thread_args) {
+
+    int stop = NOK;
+    Writable *item = NULL;
+    int i = 0;
+    Consumer_args *args = (Consumer_args*)thread_args;
+    int tmp = 0;
+    char log_msg[255];
+
+    while(stop == NOK) {
+
+        // take from content_buffer
+        sem_wait(args->full);
+        pthread_mutex_lock(args->mutex);
+        for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+            if(args->content_buffer[i].write == OK) {
+                item = &(args->content_buffer[i]);
+                break;
+            }
+        }
+        pthread_mutex_unlock(args->mutex);
+
+        // write contents to file
+        tmp = fseek(args->file, item->position, SEEK_SET);
+        if(tmp < 0) {
+            sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item->position);
+            serror(WRITER_THREAD, log_msg);
+        } else {
+            tmp = (int)fwrite(item->cluster, (size_t)(item->cluster_size), 1, args->file);
+            if(tmp <= 0) {
+                serror(WRITER_THREAD, "Error while writing to FAT file.\n");
+            }
+        }
+
+        // mark the item as free and check the stop condition
+        pthread_mutex_lock(args->mutex);
+        item->write = NOK;
+        stop = *(args->stop_condition);
+        pthread_mutex_unlock(args->mutex);
+    }
+
+    return NULL;
+}
 
 char** split_dir_path(char *dir_name, int *count) {
 	int cntr = 0;
@@ -10,7 +52,7 @@ char** split_dir_path(char *dir_name, int *count) {
 	char* tmp = NULL;
 
 	// get the filename length
-	len = strlen(dir_name);
+	len = (int)strlen(dir_name);
 	if(len == 0) {
 		*count = 0;
 		return result;
@@ -442,6 +484,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	int next_cluster = 0;
 	int buffer_size = 0;
 	int position = 0;
+    Writable content_buffer[CONTENT_BUFFER_SIZE];
 
 	// locate the destination (dir)
 	// separate the filename from the destination path

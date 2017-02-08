@@ -12,6 +12,7 @@
  */
 #define NO_NAME                 ""
 #define COMMANDS_NAME           "commands"
+#define WRITER_THREAD           "writer"
 
 void sinfo(char *name, char *msg);
 void sdebug(char *name, char *msg);

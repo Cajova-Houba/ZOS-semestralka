@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include "fat.h"
 #include "slog.h"
 
@@ -15,6 +17,47 @@
 #define PRINT_FILE_CMD      "-l"
 #define PRINT_ALL_CMD       "-p"
 #define BAD_BLOCKS_CMD       "-v"
+
+/*
+ * Size of a content buffer for producer-consumer like approach.
+ */
+#define CONTENT_BUFFER_SIZE     10
+/*
+ * Structure will contain cluster and its position in file to which
+ * it should be saved.
+ *
+ * Cluster will be saved into file only if the write=OK. After that, write will be set to NOK,
+ * indicating that the item can be used again.
+ */
+typedef struct {
+    int write;
+    int position;
+    int cluster_size;
+    char *cluster;
+} Writable;
+
+/*
+ * Arguments passed to consumer(writer) thread.
+ */
+typedef struct {
+    FILE *file;
+    Boot_record *boot_record;
+    int32_t *fat;
+    Writable *content_buffer;
+    int *stop_condition;
+
+
+    pthread_mutex_t *mutex;
+    sem_t *full;
+    sem_t *empty;
+} Consumer_args;
+
+/*
+ * A consumer thread which will write items from content_buffer to file.
+ * The consumer will keep writing items while the stop_condition is NOK.
+ * Mutexes and semaphores are expected to be already initialized.
+ */
+void *writer_thread(void *thread_args);
 
 /*
  * Creates a new directory 'dirname' in existing directory 'target'.
