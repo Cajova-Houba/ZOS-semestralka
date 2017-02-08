@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "fat.h"
 
 void *writer_thread(void *thread_args) {
 
@@ -12,15 +13,15 @@ void *writer_thread(void *thread_args) {
     while(stop == NOK) {
 
         // take from content_buffer
-        sem_wait(args->full);
-        pthread_mutex_lock(args->mutex);
+        sem_wait(&args->full);
+        pthread_mutex_lock(&args->mutex);
         for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
             if(args->content_buffer[i].write == OK) {
                 item = &(args->content_buffer[i]);
                 break;
             }
         }
-        pthread_mutex_unlock(args->mutex);
+        pthread_mutex_unlock(&args->mutex);
 
         // write contents to file
         tmp = fseek(args->file, item->position, SEEK_SET);
@@ -35,10 +36,12 @@ void *writer_thread(void *thread_args) {
         }
 
         // mark the item as free and check the stop condition
-        pthread_mutex_lock(args->mutex);
+        pthread_mutex_lock(&args->mutex);
         item->write = NOK;
         stop = *(args->stop_condition);
-        pthread_mutex_unlock(args->mutex);
+        pthread_mutex_unlock(&args->mutex);
+
+        sem_post(&args->empty);
     }
 
     return NULL;
@@ -262,7 +265,11 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
         // check that the dir doesn't exist
 		found = find_in_dir(file, boot_record, newdir_name, target_dir.start_cluster);
         if(found == OK) {
+            sprintf(log_msg, "Directory %s already exists in %s.\n", newdir_name, target);
+            sdebug(COMMANDS_NAME, log_msg);
             found = NOK;
+        } else {
+            found = OK;
         }
 	}
 
@@ -429,7 +436,7 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
 		// rewrite the Directory entry with empty Directory
 		// to rewrite the directory entry, parent cluster must be found
 		memset(&empty_dir, '\0', sizeof(Directory));
-		offset = parent_cluster * boot_record->cluster_size + sizeof(Directory)*file_position;
+		offset = parent_dir.start_cluster * boot_record->cluster_size + sizeof(Directory)*file_position;
 		fseek(file, position + offset, SEEK_SET);
 		fwrite(&empty_dir, sizeof(Directory), 1, file);
 
@@ -485,6 +492,37 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	int buffer_size = 0;
 	int position = 0;
     Writable content_buffer[CONTENT_BUFFER_SIZE];
+    Consumer_args consumer_args;
+    int stop_condition = NOK;
+    pthread_t consumer = NO_THREAD;
+
+    // init consumer arguments
+    if(sem_init(&(consumer_args.empty), 0, CONTENT_BUFFER_SIZE) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing 'empty' semaphore for consumer thread in add_file function.\n");
+        return NOK;
+    }
+    if(sem_init(&(consumer_args.full), 0, 0) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing 'full' semaphore for consumer thread in add_file function.\n");
+        return NOK;
+    }
+    if(pthread_mutex_init(&(consumer_args.mutex), NULL) != 0) {
+        serror(COMMANDS_NAME, "Error while initializing mutex for consumer thread in add_file function.\n");
+        return NOK;
+    }
+    consumer_args.content_buffer = content_buffer;
+    consumer_args.stop_condition = &stop_condition;
+    consumer_args.file = file;
+    consumer_args.boot_record = boot_record;
+    consumer_args.fat = fat;
+
+
+    // init the content buffer
+    // item.cluster will be allocated later and freed
+    // after all contents are written into the FAT
+    for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+        content_buffer[i].write = NOK;
+        content_buffer[i].cluster = NULL;
+    }
 
 	// locate the destination (dir)
 	// separate the filename from the destination path
@@ -579,14 +617,48 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		position = get_data_position(boot_record);
 		next_cluster = new_file.start_cluster;
 		tmp_cluster = new_file.start_cluster;
+
+        // start the consumer thread
+        sdebug(COMMANDS_NAME, "Starting the consumer thread.\n");
+        if (pthread_create(&consumer, NULL, writer_thread, (void *)(&consumer_args)) != 0) {
+            serror(COMMANDS_NAME, "Error while creating consumer thread in add_file function.\n");
+            free(destination);
+            fclose(source);
+            return ret;
+        }
+
 		while((bytes_read = (int)fread(buffer, 1, (size_t)buffer_size, source)) > 0) {
-			// save from buffer to fat
-			file_size += bytes_read;
 
-			offset = next_cluster * boot_record->cluster_size;
-			fseek(file, position+offset, SEEK_SET);
-			fwrite(buffer, (size_t)buffer_size, 1, file);
+            // here's where the producer part is
+            sem_wait(&consumer_args.empty);
+            file_size += bytes_read;
 
+            // store the buffer into item
+            pthread_mutex_lock(&consumer_args.mutex);
+            for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+                if(content_buffer[i].write == NOK) {
+                    // item is free to use
+                    if(content_buffer[i].cluster == NULL) {
+                        content_buffer[i].cluster = malloc((size_t)buffer_size);
+                        content_buffer[i].cluster_size = buffer_size;
+                    }
+
+                    // copy the contents of buffer to the item
+                    memcpy(content_buffer[i].cluster, buffer, (size_t )buffer_size);
+
+                    // set the cluster position
+                    offset = next_cluster * boot_record->cluster_size;
+                    content_buffer[i].position = position + offset;
+
+                    // mark the item as writable
+                    content_buffer[i].write = OK;
+                }
+            }
+            pthread_mutex_unlock(&consumer_args.mutex);
+
+            sem_post(&consumer_args.full);
+
+            // update fat
             // buffer full, get next cluster
             if(file_size % buffer_size == 0) {
                 // mark it as FAT_FILE_END so that get_free_cluster() function will not return it
@@ -604,6 +676,14 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		fclose(source);
 		fat[tmp_cluster] = FAT_FILE_END;
 
+        // wake & join the consumer thread
+        sdebug(COMMANDS_NAME, "Joining the consumer thread.\n");
+        pthread_mutex_lock(&consumer_args.mutex);
+        stop_condition = OK;
+        pthread_mutex_unlock(&consumer_args.mutex);
+        sem_post(&consumer_args.full);
+        pthread_join(consumer, NULL);
+
         // save the new file entry
         new_file.size = file_size;
         position = get_data_position(boot_record);
@@ -617,9 +697,16 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		for(i = 0; i < boot_record->fat_copies; i++) {
 			fwrite(fat, sizeof(int32_t)*boot_record->usable_cluster_count, 1, file);
 		}
+
+        ret = OK;
 	}
 
-
+    sdebug(COMMANDS_NAME, "Freeing the content_buffer.\n");
+    for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+        if(content_buffer[i].cluster != NULL) {
+            free(content_buffer[i].cluster);
+        }
+    }
 	// cleanup
 	free(destination);
 	return ret;

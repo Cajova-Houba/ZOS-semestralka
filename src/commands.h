@@ -47,9 +47,9 @@ typedef struct {
     int *stop_condition;
 
 
-    pthread_mutex_t *mutex;
-    sem_t *full;
-    sem_t *empty;
+    pthread_mutex_t mutex;
+    sem_t full;
+    sem_t empty;
 } Consumer_args;
 
 /*

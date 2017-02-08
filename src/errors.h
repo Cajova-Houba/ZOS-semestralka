@@ -13,6 +13,7 @@ typedef enum {
 
     OK = -100,
     NOK,
+    NO_THREAD,
     FILE_CHANGED,
     ERR_READING_FILE,
     ERR_FAT_NOT_FOUND,
