@@ -4,7 +4,7 @@
 void *writer_thread(void *thread_args) {
 
     int stop = NOK;
-    Writable *item = NULL;
+    Writable item;
     int i = 0;
     Consumer_args *args = (Consumer_args*)thread_args;
     int tmp = 0;
@@ -17,19 +17,21 @@ void *writer_thread(void *thread_args) {
         pthread_mutex_lock(&args->mutex);
         for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
             if(args->content_buffer[i].write == OK) {
-                item = &(args->content_buffer[i]);
+                item = args->content_buffer[i];
+                memcpy(item.cluster, args->content_buffer[i].cluster, (size_t )(args->content_buffer[i].cluster_size));
+                args->content_buffer[i].write = NOK;
                 break;
             }
         }
         pthread_mutex_unlock(&args->mutex);
 
         // write contents to file
-        tmp = fseek(args->file, item->position, SEEK_SET);
+        tmp = fseek(args->file, item.position, SEEK_SET);
         if(tmp < 0) {
-            sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item->position);
+            sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item.position);
             serror(WRITER_THREAD, log_msg);
         } else {
-            tmp = (int)fwrite(item->cluster, (size_t)(item->cluster_size), 1, args->file);
+            tmp = (int)fwrite(item.cluster, (size_t)(item.cluster_size), 1, args->file);
             if(tmp <= 0) {
                 serror(WRITER_THREAD, "Error while writing to FAT file.\n");
             }
@@ -37,7 +39,6 @@ void *writer_thread(void *thread_args) {
 
         // mark the item as free and check the stop condition
         pthread_mutex_lock(&args->mutex);
-        item->write = NOK;
         stop = *(args->stop_condition);
         pthread_mutex_unlock(&args->mutex);
 
@@ -158,7 +159,7 @@ int print_clusters(FILE* file, Boot_record* boot_record, int32_t* fat, char* fil
     if(found == OK) {
         // print file
         ret = OK;
-        printf("%s %d",filename, found_file.start_cluster);
+        printf("%s %d",filepath[file_path_count-1], found_file.start_cluster);
         tmp = fat[found_file.start_cluster];
         while(tmp != FAT_FILE_END) {
             printf(":%d",tmp);
