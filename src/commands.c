@@ -525,7 +525,7 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
 			// rewrite the Directory entry with empty Directory
 			// to rewrite the directory entry, parent cluster must be found
 			memset(&empty_dir, '\0', sizeof(Directory));
-			offset = parent_cluster * boot_record->cluster_size + sizeof(Directory)*dir_position;
+			offset = parent_dir.start_cluster * boot_record->cluster_size + sizeof(Directory)*dir_position;
 			fseek(file, position + offset, SEEK_SET);
 			fwrite(&empty_dir, sizeof(Directory), 1, file);
 
