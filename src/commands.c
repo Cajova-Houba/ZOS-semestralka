@@ -50,6 +50,28 @@ void *writer_thread(void *thread_args) {
         sem_post(&args->empty);
     }
 
+    // write rest of the items
+    pthread_mutex_lock(&args->mutex);
+    for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
+        if(args->content_buffer[i].write == OK) {
+            item = args->content_buffer[i];
+            memcpy(item.cluster, args->content_buffer[i].cluster, (size_t )(args->content_buffer[i].cluster_size));
+            args->content_buffer[i].write = NOK;
+            // write contents to file
+            tmp = fseek(args->file, item.position, SEEK_SET);
+            if(tmp < 0) {
+                sprintf(log_msg, "Error while seeking to position %d in the FAT file.\n", item.position);
+                serror(WRITER_THREAD, log_msg);
+            } else {
+                tmp = (int)fwrite(item.cluster, (size_t)(item.cluster_size), 1, args->file);
+                if(tmp <= 0) {
+                    serror(WRITER_THREAD, "Error while writing to FAT file.\n");
+                }
+            }
+        }
+    }
+    pthread_mutex_unlock(&args->mutex);
+
     return NULL;
 }
 
@@ -74,6 +96,7 @@ void *printer_thread(void *thread_args) {
                 args->content_buffer[i].write = NOK;
                 expected++;
                 found = OK;
+                break;
             }
         }
         pthread_mutex_unlock(&args->mutex);
@@ -95,6 +118,7 @@ void *printer_thread(void *thread_args) {
     // print rest of the items
     // if the currently desire position are at the end of the buffer and other (with higher position number) are on the beginning,
     // data wouldn't be printed completely. So the buffer must be iterated over two times
+    pthread_mutex_lock(&args->mutex);
     for(tmp = 0; tmp < 2; tmp++) {
         for(i = 0; i < CONTENT_BUFFER_SIZE; i++) {
             if(args->content_buffer[i].write == OK && args->content_buffer[i].position == expected) {
@@ -107,6 +131,8 @@ void *printer_thread(void *thread_args) {
             }
         }
     }
+    pthread_mutex_unlock(&args->mutex);
+    printf("\n");
 
     return NULL;
 }
@@ -685,7 +711,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
     }
 
 	// locate the source file
-	source = fopen(source_filename , "rb");
+	source = fopen(source_filename , "r");
 	if(source == NULL) {
 		sprintf(log_msg, "Error while opening source file: %s.\n", source_filename);
 		serror(COMMANDS_NAME, log_msg);
@@ -707,7 +733,6 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		strcpy(new_file.name, fname_buffer);
 		new_file.start_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
 		new_file.isFile = true;
-		file_size = 0;
 
 		// check if there's a room in the cluster for a new file
 		dir_offset = get_free_directory_in_cluster(file, boot_record, fat, dest_dir.start_cluster);
@@ -749,6 +774,8 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
             return ret;
         }
 
+        fseek(source, 0, SEEK_SET);
+        file_size = 0;
 		while((bytes_read = (int)fread(buffer, 1, (size_t)buffer_size, source)) > 0) {
 
             // here's where the producer part is
@@ -774,6 +801,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 
                     // mark the item as writable
                     content_buffer[i].write = OK;
+                    break;
                 }
             }
             pthread_mutex_unlock(&consumer_args.mutex);
@@ -814,11 +842,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
         fwrite(&new_file, sizeof(new_file), 1, file);
 
 		// update fat table(s)
-		position = sizeof(Boot_record);
-		fseek(file, position, SEEK_SET);
-		for(i = 0; i < boot_record->fat_copies; i++) {
-			fwrite(fat, sizeof(int32_t)*boot_record->usable_cluster_count, 1, file);
-		}
+        update_fat(file, boot_record, fat);
 
         ret = OK;
 	}
