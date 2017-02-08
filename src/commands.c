@@ -216,10 +216,16 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	// found the target dir
 	tmp = find_directory(file, boot_record, filepath, file_path_count, &target_dir, NULL);
 	if(tmp >= 0) {
-		found = OK;
+
+        // check that the dir doesn't exist
+		found = find_in_dir(file, boot_record, newdir_name, target_dir.start_cluster);
+        if(found == OK) {
+            found = NOK;
+        }
 	}
 
 	if(found == OK) {
+
 		// add new directory
 		// position of the cluster containing target dir
 		position = get_data_position(boot_record) +
@@ -476,6 +482,14 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	if(dir_position >= 0) {
 		dest_exists = OK;
 	}
+
+    // check that the file doesn't exist yet
+    tmp = find_in_dir(file, boot_record, fname_buffer, dest_dir.start_cluster);
+    if(tmp != NOK) {
+        sprintf(log_msg, "Error: file %s already exists.\n", fname_buffer);
+        serror(COMMANDS_NAME, log_msg);
+        dest_exists = NOK;
+    }
 
 	// locate the source file
 	source = fopen(source_filename , "rb");

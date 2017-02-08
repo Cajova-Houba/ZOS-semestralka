@@ -206,5 +206,13 @@ int is_cluster_bad(char *cluster, int cluster_size);
  */
 int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat);
 
+/*
+ * Searches dir for filename.
+ *
+ * Returns:
+ * OK: filename found.
+ * NOK: filename not found.
+ */
+int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster);
 
 #endif //SEMESTRALKA_FAT_H
