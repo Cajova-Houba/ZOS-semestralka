@@ -60,6 +60,24 @@ void print_fat(Boot_record *boot_record, int32_t* fat) {
 	}
 }
 
+void print_result(int state) {
+    switch (state) {
+        case OK:
+            printf(OK_MSG);
+            break;
+        case ERR_PATH_NOT_FOUND:
+            printf(PATH_NOT_FOUND_MSG);
+            break;
+        case ERR_FILE_TOO_BIG:
+            printf(FILE_TOO_BIG_MSG);
+            break;
+        case ERR_PATH_NOT_EMPTY:
+            printf(PATH_NOT_EMPTY_MSG);
+        default:
+            printf(ERR_MSG);
+    }
+}
+
 int main(int argc, char** argv) {
     char fat_filename[255];
     char command_name[3];
@@ -114,11 +132,7 @@ int main(int argc, char** argv) {
             strcpy(buffer2, argv[4]);
 
             state = add_file(file, &fat_record, fat_table, buffer1, buffer2);
-            if(state != OK) {
-                printf(PATH_NOT_FOUND_MSG);
-            } else {
-                printf(OK_MSG);
-            }
+            print_result(state);
         }
     } else if(strcmp(command_name, DELETE_FILE_CMD) == 0) {
         // delete file - one more arg expected
@@ -126,11 +140,7 @@ int main(int argc, char** argv) {
             strcpy(buffer1, argv[3]);
 
             state = delete_file(file, &fat_record, fat_table, buffer1);
-            if(state != OK) {
-                printf(PATH_NOT_FOUND_MSG);
-            } else {
-                printf(OK_MSG);
-            }
+            print_result(state);
         }
 
     } else if(strcmp(command_name, FILE_CLUSTERS_CMD) == 0) {
@@ -150,11 +160,7 @@ int main(int argc, char** argv) {
             strcpy(buffer2, argv[4]);
 
             state = add_directory(file, &fat_record, fat_table, buffer1, buffer2);
-            if(state != OK) {
-                printf(PATH_NOT_FOUND_MSG);
-            } else {
-                printf(OK_MSG);
-            }
+            print_result(state);
         }
     } else if(strcmp(command_name, DELETE_DIR_CMD) == 0) {
         // delete dir - one more arg expected
@@ -162,13 +168,7 @@ int main(int argc, char** argv) {
             strcpy(buffer1, argv[3]);
 
             state = delete_dir(file, &fat_record, fat_table, buffer1);
-            if(state == ERR_PATH_NOT_EMPTY) {
-                printf(PATH_NOT_EMPTY_MSG);
-            } else if(state != OK) {
-                printf(PATH_NOT_FOUND_MSG);
-            } else {
-                printf(OK_MSG);
-            }
+            print_result(state);
         }
     } else if(strcmp(command_name, PRINT_FILE_CMD) == 0) {
         // delete dir - one more arg expected

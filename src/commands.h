@@ -133,6 +133,7 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
  * OK: file added
  * PATH_NOT_FOUND: path (source or dest) not found.
  * ERR_READING_FILE: error while reading file (with fat or source file).
+ * ERR_FILE_TOO_BIG: the file won't fit into the fat.
  */
 int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_filename, char *dest_filename);
 

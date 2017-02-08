@@ -407,7 +407,7 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
 	Directory empty_dir;
 	Directory target_dir;
 	Directory parent_dir;
-	int parent_cluster = 0;
+	int prev_cluster = 0;
 	int file_position = 0;
 	int32_t unused_cluster = FAT_UNUSED;
 	int tmp_clstr = 0;
@@ -440,26 +440,17 @@ int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filena
 		fseek(file, position + offset, SEEK_SET);
 		fwrite(&empty_dir, sizeof(Directory), 1, file);
 
-		// mark all the file clusters in fat (and all it's copies) as UNUSED
-		position = sizeof(Boot_record);
-		offset = 0;
-		for(i = 0; i < boot_record->fat_copies; i++) {
-			// for every copy of fat, go through the file clusters and mark them as UNUSED
-			tmp_clstr = target_dir.start_cluster;
-			while(tmp_clstr != FAT_FILE_END) {
-				// current cluster position
-				fat_offset = sizeof(int32_t) * tmp_clstr;
+		// mark all the file clusters in fat as UNUSED
+        tmp_clstr = target_dir.start_cluster;
+        prev_cluster = tmp_clstr;
+        while(tmp_clstr != FAT_FILE_END) {
+            tmp_clstr = fat[tmp_clstr];
+            fat[prev_cluster] = FAT_UNUSED;
+            prev_cluster = tmp_clstr;
+        }
 
-				// next cluster
-				tmp_clstr = fat[tmp_clstr];
-
-				// delete current cluster
-				fseek(file, position + offset + fat_offset, SEEK_SET);
-				fwrite(&unused_cluster, sizeof(int32_t), 1, file);
-			}
-
-			offset += sizeof(int32_t)*boot_record->usable_cluster_count;	// start of the next copy of fat.
-		}
+        // update fat
+		update_fat(file, boot_record, fat);
 		ret = OK;
 	}
 
@@ -476,7 +467,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 	int i = 0;
 	int tmp = 0;
 	int dest_exists = NOK;
-	int file_size;
+	int32_t file_size;
 	FILE *source = NULL;
 	Directory dest_dir;
 	Directory new_file;
@@ -495,6 +486,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
     Consumer_args consumer_args;
     int stop_condition = NOK;
     pthread_t consumer = NO_THREAD;
+
 
     // init consumer arguments
     if(sem_init(&(consumer_args.empty), 0, CONTENT_BUFFER_SIZE) != 0) {
@@ -579,6 +571,16 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
 		serror(COMMANDS_NAME, log_msg);
 		dest_exists = NOK;
 	}
+
+    // check size
+    fseek(source, 0, SEEK_END);
+    file_size = (int)ftell(source);
+    if(file_size > boot_record->cluster_size * unused_cluster_count(fat, boot_record->usable_cluster_count) || file_size < 0) {
+        sprintf(log_msg, "Error: %s is too big (%d) to be stored in fat.\n", source_filename, file_size);
+        serror(COMMANDS_NAME, log_msg);
+        ret = ERR_FILE_TOO_BIG;
+        dest_exists = NOK;
+    }
 
 	// write the file to the fat
 	if(dest_exists == OK) {

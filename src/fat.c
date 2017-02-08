@@ -534,3 +534,16 @@ int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int direct
     free(items);
     return found;
 }
+
+int unused_cluster_count(int32_t *fat, int fat_length) {
+    int i = 0;
+    int count = 0;
+
+    for(i = 0; i < fat_length; i++) {
+        if(fat[i] == FAT_UNUSED) {
+            count++;
+        }
+    }
+
+    return count;
+}

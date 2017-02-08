@@ -215,4 +215,9 @@ int update_fat(FILE *file, Boot_record *boot_record, int32_t *fat);
  */
 int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int directory_cluster);
 
+/*
+ * Returns the number of clusters marked as UNUSED.
+ */
+int unused_cluster_count(int32_t *fat, int fat_length);
+
 #endif //SEMESTRALKA_FAT_H
