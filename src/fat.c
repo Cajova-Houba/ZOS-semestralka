@@ -525,7 +525,7 @@ int find_in_dir(FILE *file, Boot_record *boot_record, char *filename, int direct
     int found = NOK;
 
     for(i = 0; i < item_count; i++) {
-        if(strcmp(filename, items[i].name) == 0 && items->isFile == is_file) {
+        if(strcmp(filename, items[i].name) == 0 && items[i].isFile == is_file) {
             found = OK;
             break;
         }

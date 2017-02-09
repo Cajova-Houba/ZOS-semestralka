@@ -720,6 +720,7 @@ int add_file(FILE *file, Boot_record *boot_record, int32_t *fat, char *source_fi
         sprintf(log_msg, "Error: file %s already exists.\n", fname_buffer);
         serror(COMMANDS_NAME, log_msg);
         dest_exists = NOK;
+        ret = ERR_ALREADY_EXISTS;
     }
 
 	// locate the source file
