@@ -940,6 +940,7 @@ int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluste
     int ret = NOK;
     int new_cluster = NO_CLUSTER;
     int cluster_val = fat[cluster];
+    int orig_val = 0;
 
     // seek
     tmp = fseek(file, data_position + data_offset, SEEK_SET);
@@ -963,6 +964,7 @@ int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluste
     tmp = is_cluster_bad(buffer, buffer_size);
     if(tmp == OK) {
         // cluster is bad
+        orig_val = fat[cluster];
         fat[cluster] = FAT_BAD_CLUSTERS;
         new_cluster = get_free_cluster(fat, boot_record->usable_cluster_count);
         if(new_cluster == NO_CLUSTER) {
@@ -977,22 +979,26 @@ int check_cluster(FILE *file, Boot_record *boot_record, int32_t *fat, int cluste
         buffer[buffer_size-1] = '\0';
 
         // move the cluster to the new one
-        data_offset = new_cluster*boot_record->cluster_size;
-        tmp = fseek(file, data_position + data_offset, SEEK_SET);
-        if(tmp < 0) {
-            sprintf(log_msg, "Error occurred while seeking the cluster %d.\n", new_cluster);
-            serror(COMMANDS_NAME, log_msg);
-            fat[cluster] = cluster_val;
-            free(buffer);
-            return ret;
-        }
-        tmp = (int)fwrite(buffer, (size_t)buffer_size, 1, file);
-        if(tmp != 1) {
-            sprintf(log_msg, "Error while writing the new cluster %d.\n", new_cluster);
-            serror(COMMANDS_NAME, log_msg);
-            fat[cluster] = cluster_val;
-            free(buffer);
-            return ret;
+        // if the cluster which is being checked is UNUSED, there's no need
+        // to move the data.
+        if(orig_val != FAT_UNUSED) {
+            data_offset = new_cluster*boot_record->cluster_size;
+            tmp = fseek(file, data_position + data_offset, SEEK_SET);
+            if(tmp < 0) {
+                sprintf(log_msg, "Error occurred while seeking the cluster %d.\n", new_cluster);
+                serror(COMMANDS_NAME, log_msg);
+                fat[cluster] = cluster_val;
+                free(buffer);
+                return ret;
+            }
+            tmp = (int)fwrite(buffer, (size_t)buffer_size, 1, file);
+            if(tmp != 1) {
+                sprintf(log_msg, "Error while writing the new cluster %d.\n", new_cluster);
+                serror(COMMANDS_NAME, log_msg);
+                fat[cluster] = cluster_val;
+                free(buffer);
+                return ret;
+            }
         }
 
         // return the new cluster number

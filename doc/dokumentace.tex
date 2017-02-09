@@ -122,10 +122,24 @@
 		\end{tabular}
 	\end{center}
 	
+	\subsection{Příklady}
+	
+	\begin{tabular}{l l}
+		Smazání souboru: & \verb|./program fat.fat -f /msg.txt|\\
+		Smazání adresáře: & \verb|./program fat.fat -r /direct-1/| \\
+		Výpis souboru: & \verb|./program fat.fat -l /pohadka.txt| \\
+		Vytvoření adresáře: & \verb|./program fat.fat -m new-dir /direct-1/| \\
+		Nahrání souboru: & \verb|./program fat.fat /tmp/soubor.txt /direct-1/soubor.txt| \\
+		
+		
+	\end{tabular}
+	
 	\section{Popis řešení}
 	Běh programu je rozdělen do tří částí. V první části dojde k načtení parametrů a přečtení FAT tabulky, v druhé části k vykonání příkazů a ve třetí části k výpisu výsledku.
 	
 	Implementace obsluhy FAT se nachází v souborech \verb|fat.c| a \verb|fat.h|. Implementace příkazů v souborech \verb|commands.c| a \verb|commands.h|.
+	
+	Několik málo funkcí je otestováno v souborech \verb|tests.c| a \verb|tests.h|. Testování může být zapnuto přepínačem \verb|RUN_TESTS| v \verb|main.c|. Celková funkcionalita je pak otestována skriptem \verb|test.sh| v adresáři \verb|testings|. Pro spuštění tohoto testu je potřeba nastavit ve skriptu správnou cestu k spustitelnému souboru.
 	
 	\subsection{Přidání souboru}
 	Při nahrávání nového souboru je nejdříve zkontrolována platnost cest (zdrojové a cílové). V jednom adresáři nemohou být dva soubory se stejným jménem. Pak následuje kontrola velikosti. Pokud je nahrávaný soubor větší, než místo dané počtem volných clusterů, není možné jej do FAT nahrát.
@@ -159,7 +173,21 @@
 	Výpis adresářové struktury je řešen rekurzivním algoritmem. Vždy na začátku iterace proběhne nahrání souborů v současném adresáři. Pak následuje jejich postupný výpis a pokud se narazí na adresář, dojde k rekurzi a proces se opakuje.
 	
 	\subsection{Oprava bad blocků}
+	Oprava chybných clusterů má dvě fáze. V první fázi se projdou všechny clustery označené jako volné. Pokud je detekován cluster špatný, označí se ve FAT jako chybný a data v něm budou ponechána beze změny.
+	
+	V druhé fázi je procházen adresářový strom. Root není kontrolován - předpokládá se, že root je ve fat vždy na 0. místě a proto jej nelze přesunout. Adresářový strom je opět procházen rekurzivně. V případě, že je detekován chybný adresář, dojde k přesunu celého clusteru a změně ve FAT. Přesunutý cluster bude mít změněn poslední byte na \verb|0|, aby nebyl při dalších průchodech znovu detekovaný.
+	
+	Clustery u souborů jsou procházeny podobně jako spojové seznamy. Pokud je detekován špatný cluster uvnitř souboru, je pouze přesunut do jiného. Pokud je detekován špatný první cluster souboru, dojde k přesunu a updatu \verb|Directory| záznamu. Přesunutý cluster bude mít opět změněn poslední byte na \verb|0|.
 	
 	\section{Závěr}
+	Program pracuje správně a dokáže obsloužit jednoduchou FAT tabulku. Z práce je patrná jednoduchost FAT oproti modernějším file systémům (EXT3, NTFS).
+	
+	Program by se dal na některých místech více paralelizovat (oprava bad blocků), nicméně by to vyžadovalo držení větší části FS v paměti a i přes to by spousta operací zůstala sekvenčních.
+	
+	Další z možných vylepšení je nahrazení rekurzivních algoritmů. V tomto případě se sice jedné o jednoduché řešení, ale na slabších systémech by mohlo snadno dojít k přetečení zásobníku.
+	
+	
+	
+	
 	
 \end{document}
