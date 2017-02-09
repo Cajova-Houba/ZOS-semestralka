@@ -80,7 +80,9 @@
 	\end{center}
 
 	\section{Popis použití programu}
-	Obecná forma spuštění příkazu je \verb|./program cesta/k/fat prikaz [p1] [p2]|.
+	Program lze přeložit a sestavit automatizačním nástrojem \verb|soncs| z kořenového adresáře projektu.
+	
+	Obecná forma spuštění příkazu je \verb|./zos-fat cesta/k/fat prikaz [p1] [p2]|.
 	Následující tabulka popisuje možné příkazy a jejich parametry.
 	
 	\begin{center}
@@ -125,11 +127,11 @@
 	\subsection{Příklady}
 	
 	\begin{tabular}{l l}
-		Smazání souboru: & \verb|./program fat.fat -f /msg.txt|\\
-		Smazání adresáře: & \verb|./program fat.fat -r /direct-1/| \\
-		Výpis souboru: & \verb|./program fat.fat -l /pohadka.txt| \\
-		Vytvoření adresáře: & \verb|./program fat.fat -m new-dir /direct-1/| \\
-		Nahrání souboru: & \verb|./program fat.fat /tmp/soubor.txt /direct-1/soubor.txt| \\
+		Smazání souboru: & \verb|./zos-fat fat.fat -f /msg.txt|\\
+		Smazání adresáře: & \verb|./zos-fat fat.fat -r /direct-1/| \\
+		Výpis souboru: & \verb|./zos-fat fat.fat -l /pohadka.txt| \\
+		Vytvoření adresáře: & \verb|./zos-fat fat.fat -m new-dir /direct-1/| \\
+		Nahrání souboru: & \verb|./zos-fat fat.fat /tmp/soubor.txt /direct-1/soubor.txt| \\
 		
 		
 	\end{tabular}
@@ -184,7 +186,7 @@
 	
 	Program by se dal na některých místech více paralelizovat (oprava bad blocků), nicméně by to vyžadovalo držení větší části FS v paměti a i přes to by spousta operací zůstala sekvenčních.
 	
-	Další z možných vylepšení je nahrazení rekurzivních algoritmů. V tomto případě se sice jedné o jednoduché řešení, ale na slabších systémech by mohlo snadno dojít k přetečení zásobníku.
+	Další z možných vylepšení je nahrazení rekurzivních algoritmů. V tomto případě se sice jedné o jednoduché řešení, ale na slabších systémech by mohlo snadno dojít k přetečení zásobníku.	
 	
 	
 	
