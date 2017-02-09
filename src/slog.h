@@ -5,7 +5,7 @@
 #include <time.h>
 
 // set to 0 to turn logging off
-#define LOGGING_ON              1
+#define LOGGING_ON              0
 
 /*
  * Possible names to use for log messages.

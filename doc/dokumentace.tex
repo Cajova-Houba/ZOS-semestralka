@@ -1,0 +1,165 @@
+\documentclass[11pt,a4paper]{scrartcl}
+\usepackage[czech]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{longtable}
+%\graphicspath{{./img/}}
+
+\begin{document}
+	\title{Semestrální práce z předmětu KIV/ZOS}
+	\subtitle{Práce s pseudo FAT tabulkou}
+	\author{Zdeněk Valeš - A13B0458P - valesz@students.zcu.cz}
+	\date{13.12. 2016}
+	\maketitle
+	\newpage
+	
+	\section{Zadání}
+	V jazyce C/C++ vytvořte program pro obsluhu pseudo FAT tabulky. Program musí být schopný přidávat a mazat soubory i adresáře, vypisovat použité clustery u souboru, obsah souboru a vypsat adresářovou strukturu.
+	
+	Program musí být schopný najít a opravit vadné clustery. Vadný cluster bude mít na konci a začátku sekvenci \verb|0xFF 0xFF 0xFF|.
+	
+	\section{Formát souboru s FAT}
+	Tabulka se skládá ze tří částí - popis FAT, samotná FAT tabulka její kopie a datová sekce, kde jsou uložené clustery.
+	
+	\subsection{Popis FAT}
+	
+	Následující tabulka popisuje první část FS. Reálně tato část zabírá 272 bytů, kvůli zarovnání.
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Datový typ & délka (B) & Popis \\
+			\hline
+			char & 250 & Slovní popis souborového systému. \\
+			int8\_t & 1 & Typ FAT tabulky. \\
+			int16\_t & 2 & Velikost jednoho clusteru v bytech. \\
+			int32\_t & 4 & Počet clusterů použitelných pro data. \\
+			char & 9 & Login autora FS. \\
+			\hline
+		\end{tabular}
+	\end{center}
+
+	
+	\subsection{FAT a její kopie}
+	Délka této části vychází z údajů z předchozí sekce, závisí na počtu clusterů (=počet záznamů) a počtu kopií. Každý záznam ve FAT je typovaný na \verb|int32_t|.
+	
+	Následující tabulka zobrazuje možné hodnoty, které může položka ve FAT nabývat:
+	
+	\begin{center}
+		\begin{tabular}{|c|c|}
+			\hline
+			Hodnota & Popis \\
+			\hline
+			0x7FFF FFFe & Volný cluster \\
+			0x7FFF FFFd & Konec souboru - poslední cluster v souboru. \\
+			0x7FFF FFFc & Vadný cluster. \\
+			0x7FFF FFFb & Cluster obsahuje adresář. \\
+			\hline
+		\end{tabular}
+	\end{center}
+	
+	\subsection{Datová sekce}
+	V této části se nachází datové clustery. Pokud je cluster adresář, bude obsahovat seznam \verb|Directory| struktur, které tvoří položky v adresáři. Počet položek v adresáři je omezen velikostí clusteru.
+	
+	Následující tabulka popisuje strukturu \verb|Directory|.
+	
+	\begin{center}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Datový typ & délka (B) & Popis \\
+			\hline
+			char & 13 & Jméno souboru. \\
+			bool & 1 & Položka je soubor (true), nebo adresář (false). \\
+			int32\_t & 4 & Velikost souboru. V případě adresáře 0. \\
+			int32\_t & 4 & Počáteční cluster. \\
+			\hline
+		\end{tabular}
+	\end{center}
+
+	\section{Popis použití programu}
+	Obecná forma spuštění příkazu je \verb|./program cesta/k/fat prikaz [p1] [p2]|.
+	Následující tabulka popisuje možné příkazy a jejich parametry.
+	
+	\begin{center}
+		\begin{tabular}{|c|p{13cm}|}
+			\hline
+			Příkaz & Popis \\
+			\hline
+			-a & \verb|p1| je plná cesta ke zdrojovému souboru a \verb|p2| je plné jméno cílového souboru ve FAT. Adresářová cesta ve FAT musí existovat, jméno souboru v cílovém adresáři musí být unikátní.\\
+			
+			\hline
+			
+			-f & Smaže soubor \verb|p1|. \verb|p1| musí být plná cesta ve FAT. \\
+			
+			\hline
+			
+			-c & Vypíše čísla clusterů souboru \verb|p1|. \verb|p1| musí být plná cesta souboru ve FAT. \\
+			
+			\hline
+			
+			-m & Vytvoří adresář se jménem \verb|p1| v cestě \verb|p2|. Adresářová cesta \verb|p2| musí být zakončena znakem '\verb|/|'. \\
+			
+			\hline
+			
+			-r & Smaže adresář daný cestou \verb|p1|. Adresářová cesta \verb|p1| musí být zakončena znakem '\verb|/|' a adresář musí být prázdný. \\
+			
+			\hline
+			
+			-l & Vypíše obsah souboru \verb|p1|. \verb|p1| musí být plná cesta ve FAT. \\
+			
+			\hline
+			
+			-p & Vypíše celou adresářovou strukturu. \\
+			
+			\hline
+			
+			-v & Projde FAT a opraví vadné clustery. \\
+			
+			\hline
+		\end{tabular}
+	\end{center}
+	
+	\section{Popis řešení}
+	Běh programu je rozdělen do tří částí. V první části dojde k načtení parametrů a přečtení FAT tabulky, v druhé části k vykonání příkazů a ve třetí části k výpisu výsledku.
+	
+	Implementace obsluhy FAT se nachází v souborech \verb|fat.c| a \verb|fat.h|. Implementace příkazů v souborech \verb|commands.c| a \verb|commands.h|.
+	
+	\subsection{Přidání souboru}
+	Při nahrávání nového souboru je nejdříve zkontrolována platnost cest (zdrojové a cílové). V jednom adresáři nemohou být dva soubory se stejným jménem. Pak následuje kontrola velikosti. Pokud je nahrávaný soubor větší, než místo dané počtem volných clusterů, není možné jej do FAT nahrát.
+	
+	Samotné čtení ze souboru a nahrávání dat do FAT je řešeno pomocí schématu producent-konzument. Kde hlavní vlákno je producent, který čte data ze zdrojového souboru a vedlejší vlákno je konzument, který tato data zapisuje do souboru s FAT.
+	
+	Po přečtení zdrojového souboru se uloží nový \verb|Directory| záznam a provede se update FAT tabulky.
+	
+	\subsection{Smazání souboru}
+	Před smazáním souboru je nejdříve ověřena jeho existence ve FAT. Pokud soubor existuje, všechny jeho clustery se označí jako nepoužité a popisovač souboru (\verb|Directory|) bude z FAT vymazán. Tímto způsobem není třeba procházet celou FAT a přepisovat clustery.
+	
+	\subsection{Výpis clusterů}
+	Před výpisem čísel clusterů souboru je nejdříve ověřena jeho existence ve FAT. Pokud soubor existuje, program projde FAT tabulku a bude postupně vypisovat čísla clusterů.
+	
+	Funkce vypisování clusterů funguje pouze pro soubory. Pro adresář vrátí \verb|PATH_NOT_FOUND|.
+	
+	\subsection{Vložení adresáře}
+	Před vložením adresáře je nejdříve ověřena existence cílové cesty (kde bude adresář vytvořen). Pak program zkontroluje, jestli v cílovém adresáři už neexistuje adresář s tímto jménem. Soubor se stejným jménem existovat může.
+	
+	Po těchto kontrolách je do clusteru s rodičovským adresářem (na 1. volné místo) uložen nový \verb|Directory| záznam a provede se update FAT tabulky.
+	
+	\subsection{Smazání adresáře}
+	Před smazáním adresáře proběhne ověření jeho existence a kontrola, jestli je adresář prázdný. Pokud existuje a je prázdný, \verb|Directory| záznam je smazán a provede se update FAT tabulky.
+	
+	\subsection{Výpis obsahu souboru}
+	Před výpisem obsahu souboru je nejdříve ověřena jeho existence. Pokud soubor existuje, je postupně vypsán na konzoli.
+	
+	Výpis na konzoli je paralelizován pomocí schématu producent-konzument, kdy hlavní vlákno je producent, který čte ze souboru do bufferu a vedlejší vlákno je konzument, který bere data z bufferu a vypisuje je na konzoli. Do bufferu se ukládá i pořadové číslo načteného bloku dat, takže výpis pak není přeházený.
+	
+	\subsection{Výpis adresářové struktury}
+	Výpis adresářové struktury je řešen rekurzivním algoritmem. Vždy na začátku iterace proběhne nahrání souborů v současném adresáři. Pak následuje jejich postupný výpis a pokud se narazí na adresář, dojde k rekurzi a proces se opakuje.
+	
+	\subsection{Oprava bad blocků}
+	
+	\section{Závěr}
+	
+\end{document}

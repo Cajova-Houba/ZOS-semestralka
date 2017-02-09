@@ -77,6 +77,9 @@ void print_result(int state) {
         case ERR_NO_FREE_ROOM:
             printf(NO_FREE_ROOM_MSG);
             break;
+        case ERR_ALREADY_EXISTS:
+            printf(ALREADY_EXISTS_MSG);
+            break;
         default:
             printf(ERR_MSG);
     }

@@ -408,6 +408,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	int free_cluster = NO_CLUSTER;
 	int tmp = 0;
 	char log_msg[255];
+    char *buffer;
 
 	// split the filename to path items
 	filepath = split_dir_path(target, &file_path_count);
@@ -429,6 +430,7 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
             sprintf(log_msg, "Directory %s already exists in %s.\n", newdir_name, target);
             sdebug(COMMANDS_NAME, log_msg);
             found = NOK;
+            ret = ERR_ALREADY_EXISTS;
         } else {
             found = OK;
         }
@@ -469,7 +471,17 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 				fseek(file, position+offset, SEEK_SET);
 				fwrite(&tmp_dir,sizeof(Directory), 1, file);
 
+                // write empty cluster to the start cluster
+                buffer = malloc(sizeof(char) * boot_record->cluster_size);
+                memset(buffer, 0, sizeof(char) * boot_record->cluster_size);
+                position = get_data_position(boot_record);
+                offset = free_cluster * boot_record->cluster_size;
+                fseek(file, position+offset, SEEK_SET);
+                fwrite(buffer, sizeof(char) * boot_record->cluster_size, 1, file);
+                free(buffer);
+
 				// update fat table and all copies
+                fat[free_cluster] = FAT_DIRECTORY;
 				update_fat(file, boot_record, fat);
 				ret = OK;
 			}

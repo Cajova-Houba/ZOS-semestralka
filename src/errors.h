@@ -12,6 +12,7 @@
 #define ERR_MSG                     "ERROR\n"
 #define ERR_READING_FILE_MSG        "ERROR WHILE READING FILE\n"
 #define NO_FREE_ROOM_MSG            "NO ROOM\n"
+#define ALREADY_EXISTS_MSG          "FILE ALREADY EXISTS\n"
 
 typedef enum {
 
@@ -24,7 +25,8 @@ typedef enum {
     ERR_FILE_TOO_BIG,
     ERR_PATH_NOT_FOUND,
     ERR_PATH_NOT_EMPTY,
-    ERR_NO_FREE_ROOM
+    ERR_NO_FREE_ROOM,
+    ERR_ALREADY_EXISTS
 
 } Errors;
 
