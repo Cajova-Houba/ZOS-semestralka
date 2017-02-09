@@ -140,7 +140,7 @@ void print_dir(char* buffer, Directory* directory, int level) {
     if(directory->isFile == true) {
         sprintf(&buffer[i], FILE_PRINT_FORMAT, directory->name, directory->start_cluster, directory->size);
     } else {
-        sprintf(&buffer[i], DIR_PRINT_FORMAT, directory->name);
+        sprintf(&buffer[i], DIR_PRINT_FORMAT, directory->name, directory->start_cluster);
     }
 }
 

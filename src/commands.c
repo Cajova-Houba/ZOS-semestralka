@@ -395,7 +395,6 @@ int print_file_content(FILE* file, Boot_record* boot_record, int32_t* fat, char*
 }
 
 int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newdir_name, char* target) {
-	int i = 0;
 	int found = NOK;
 	int ret = ERR_PATH_NOT_FOUND;
 	int file_path_count = 0;
@@ -404,7 +403,6 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 	Directory target_dir;
 	char **filepath = NULL;
 	Directory tmp_dir;
-	int dir_cluster = FAT_DIRECTORY;
 	int free_cluster = NO_CLUSTER;
 	int tmp = 0;
 	char log_msg[255];
@@ -497,7 +495,6 @@ int add_directory(FILE* file, Boot_record* boot_record, int32_t* fat, char* newd
 
 int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_name) {
 	int item_count = 0;
-	int i = 0;
 	int found = NOK;
 	int ret = ERR_PATH_NOT_FOUND;
 	int file_path_count = 0;
@@ -507,7 +504,6 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
 	Directory empty_dir;
 	Directory target_dir;
 	Directory parent_dir;
-	int parent_cluster = 0;
 	int dir_position = 0;
 
 	// split the filename to path items
@@ -556,7 +552,6 @@ int delete_dir(FILE *file, Boot_record *boot_record, int32_t *fat, char *dir_nam
 
 
 int delete_file(FILE *file, Boot_record *boot_record, int32_t* fat, char *filename) {
-	int i = 0;
 	int found = NOK;
 	int ret = ERR_PATH_NOT_FOUND;
 	int file_path_count = 0;
